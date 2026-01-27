@@ -30,6 +30,7 @@ export interface S3Object {
   etag?: string;
   /** Storage class of the object (STANDARD, GLACIER, etc.) */
   storageClass?: string;
+  previewUrl?: string
 }
 
 /**
