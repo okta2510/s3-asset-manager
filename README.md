@@ -2,7 +2,7 @@
 
 A secure, browser-based file manager for S3-compatible object storage (e.g., AWS S3, NEO Object Storage, MinIO, DigitalOcean Spaces).
 
-![S3 Asset Manager UI](/screenshot.webp)
+![S3 Asset Manager UI](public/screenshot.webp)
 [Preview S3 Asset Manager](https://s3.yanginibeda.com/)
 
 ## ✨ Features
