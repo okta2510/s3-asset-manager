@@ -206,6 +206,7 @@ export function AssetTable({
                     ) : (
                       <div>
                         {obj.previewUrl ? (
+                          <a href={obj.previewUrl} target="_blank">
                           <img
                             src={obj.previewUrl}
                             alt={obj.key}
@@ -214,6 +215,7 @@ export function AssetTable({
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
                           />
+                          </a>
                         ) : (
                           ''
                         )}
