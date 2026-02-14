@@ -12,6 +12,8 @@ import {
 import type { S3Object } from "@/lib/types";
 import {
   ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   ChevronRight,
   Download,
   Folder,
@@ -41,8 +43,10 @@ interface AssetTableProps {
     continuationToken?: string;
     onLoadMore: () => void;
     onPrevious: () => void;
+    onPerPage: (page: number) => void;
     canGoPrevious: boolean;
     currentPage: number;
+    perPage: number;
   };
 }
 
@@ -219,6 +223,7 @@ export function AssetTable({
                         ) : (
                           ''
                         )}
+                        <a className="block" target="_blank" href={obj.previewUrl+''}>{obj.previewUrl+''}</a>
                         <span className="font-medium text-[12px] text-gray-500">
                           {getDisplayName(obj.key, currentPrefix)}
                         </span>
@@ -277,6 +282,21 @@ export function AssetTable({
         <p className="text-sm text-muted-foreground">
           Page {pagination.currentPage}
           {objects.length > 0 && ` • ${objects.length} items`}
+           <select
+            value={pagination.perPage}
+            onChange={(e) => {
+              const newPerPage = Number(e.target.value);
+              pagination.onPerPage(newPerPage); // updates perPage state
+              // Refetch with new per-page value
+              // fetchObjects(currentPrefix, undefined, false, newPerPage);
+            }}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
         </p>
         <div className="flex items-center gap-2">
           <Button

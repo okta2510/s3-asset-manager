@@ -178,6 +178,7 @@ export async function POST(request: Request) {
       Key: key,
       Body: buffer,
       ContentType: file.type || "application/octet-stream",
+      ACL: 'public-read' // 👈 THIS MAKES IT PUBLIC
     });
 
     await client.send(command);

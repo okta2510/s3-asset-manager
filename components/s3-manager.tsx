@@ -50,6 +50,7 @@ export function S3Manager() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreatingBucket, setIsCreatingBucket] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [perPage, setPerPage] = useState(50);
 
   /**
    * Loads saved credentials from localStorage on component mount
@@ -66,6 +67,10 @@ export function S3Manager() {
     }
     setMounted(true)
   }, []);
+
+  useEffect(() => {
+    fetchObjects(currentPrefix, continuationToken, true);
+  }, [perPage]);
 
   /**
    * Builds query string with credentials for API calls
@@ -166,7 +171,7 @@ export function S3Manager() {
           ),
           bucket: selectedBucket,
           prefix,
-          maxKeys: "10",
+          maxKeys: perPage.toString(),
           Key: 'image.jpg'
         });
         if (token) {
@@ -184,14 +189,14 @@ export function S3Manager() {
                 const ext = obj.key.split('.').pop()?.toLowerCase();
                 if (imageExtensions.includes(ext)) {
                   try {
-                    // const previewUrl = await getPresignedUrl(
-                    //   obj.key,
-                    //   credentials,
-                    //   selectedBucket,
-                    //   buildCredentialParams
-                    // );
+                    const imgUrl = await getPresignedUrl(
+                      obj.key,
+                      credentials,
+                      selectedBucket,
+                      buildCredentialParams
+                    );
                     const previewUrl = `https://nos.jkt-1.neo.id/${selectedBucket}/${encodeURIComponent(obj.key)}`;
-                    return { ...obj, previewUrl };
+                    return { ...obj, previewUrl, imgUrl };
                   } catch (err) {
                     console.warn(`Failed to generate preview for ${obj.key}:`, err);
                     return { ...obj, previewUrl: null };
@@ -305,7 +310,6 @@ export function S3Manager() {
       fetchObjects(currentPrefix, undefined, false);
     }
   };
-
   /**
    * Handles file upload to S3
    * @param file - File to upload
@@ -659,6 +663,8 @@ export function S3Manager() {
                     onPrevious: handlePreviousPage,
                     canGoPrevious: currentPage > 1,
                     currentPage,
+                    perPage,
+                    onPerPage:setPerPage
                   }}
                 />
               </CardContent>
