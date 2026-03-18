@@ -15,7 +15,7 @@ import {
   clearCredentials,
 } from "@/lib/s3-storage";
 import type { S3Credentials, Bucket, S3Object } from "@/lib/types";
-import { LogOut, RefreshCw, Settings } from "lucide-react";
+import { LogOut, RefreshCw, Settings, FolderPlus } from "lucide-react";
 
 /**
  * S3Manager Component
@@ -50,6 +50,7 @@ export function S3Manager() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreatingBucket, setIsCreatingBucket] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [perPage, setPerPage] = useState(50);
 
   /**
    * Loads saved credentials from localStorage on component mount
@@ -66,6 +67,10 @@ export function S3Manager() {
     }
     setMounted(true)
   }, []);
+
+  useEffect(() => {
+    fetchObjects(currentPrefix, continuationToken, true);
+  }, [perPage]);
 
   /**
    * Builds query string with credentials for API calls
@@ -166,7 +171,7 @@ export function S3Manager() {
           ),
           bucket: selectedBucket,
           prefix,
-          maxKeys: "10",
+          maxKeys: perPage.toString(),
           Key: 'image.jpg'
         });
         if (token) {
@@ -184,13 +189,14 @@ export function S3Manager() {
                 const ext = obj.key.split('.').pop()?.toLowerCase();
                 if (imageExtensions.includes(ext)) {
                   try {
-                    const previewUrl = await getPresignedUrl(
+                    const imgUrl = await getPresignedUrl(
                       obj.key,
                       credentials,
                       selectedBucket,
                       buildCredentialParams
                     );
-                    return { ...obj, previewUrl };
+                    const previewUrl = `https://nos.jkt-1.neo.id/${selectedBucket}/${encodeURIComponent(obj.key)}`;
+                    return { ...obj, previewUrl, imgUrl };
                   } catch (err) {
                     console.warn(`Failed to generate preview for ${obj.key}:`, err);
                     return { ...obj, previewUrl: null };
@@ -304,7 +310,6 @@ export function S3Manager() {
       fetchObjects(currentPrefix, undefined, false);
     }
   };
-
   /**
    * Handles file upload to S3
    * @param file - File to upload
@@ -340,6 +345,56 @@ export function S3Manager() {
     }
   };
 
+
+  /**
+   * handle create folder
+  */
+  const createFolder = async (folderName: string) => {
+    if (!credentials || !selectedBucket) {
+      console.warn("Missing credentials or bucket");
+      return;
+    }
+
+    // Ensure folder key ends with '/'
+    const folderKey = folderName.endsWith('/') ? folderName : `${folderName}/`;
+
+    setIsUploading(true);
+    try {
+      // Create a zero-byte "file" to represent the folder
+      const emptyFile = new File([''], folderKey, { type: 'application/x-directory' });
+
+      const formData = new FormData();
+      formData.append('file', emptyFile);
+      formData.append('key', folderKey);
+      formData.append('bucket', selectedBucket);
+      formData.append('endpoint', credentials.endpoint);
+      formData.append('region', credentials.region);
+      formData.append('accessKeyId', credentials.accessKeyId);
+      formData.append('secretAccessKey', credentials.secretAccessKey);
+
+      const response = await fetch('/api/s3/objects', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to create folder "${folderName}"`);
+      }
+
+      // Refresh the object list to show the new folder
+      await fetchObjects(currentPrefix);
+
+      // Optional: show success feedback
+      console.log(`Folder created: ${folderKey}`);
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      // You might want to show a toast/notification here
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   /**
    * Handles object deletion from S3
    * @param key - Key of object to delete
@@ -362,9 +417,9 @@ export function S3Manager() {
         const data = await response.json();
         throw new Error(data.error || "Delete failed");
       }
-
+      setObjects(objects.filter((obj) => obj.key !== deleteTarget));
       // Refresh objects list after deletion
-      fetchObjects(currentPrefix);
+      // fetchObjects(currentPrefix);
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
@@ -570,6 +625,21 @@ export function S3Manager() {
                       />
                       Refresh
                     </Button>
+                    {/* Create Folder Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        const folderName = prompt("Enter folder name:");
+                        if (folderName?.trim()) {
+                          await createFolder(`${currentPrefix}${folderName.trim()}`);
+                        }
+                      }}
+                      disabled={isUploading || isObjectsLoading}
+                    >
+                      <FolderPlus className="mr-2 h-4 w-4" />
+                      New Folder
+                    </Button>
                     <UploadDialog
                       currentPrefix={currentPrefix}
                       onUpload={handleUpload}
@@ -593,6 +663,8 @@ export function S3Manager() {
                     onPrevious: handlePreviousPage,
                     canGoPrevious: currentPage > 1,
                     currentPage,
+                    perPage,
+                    onPerPage:setPerPage
                   }}
                 />
               </CardContent>

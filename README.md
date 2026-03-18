@@ -38,3 +38,29 @@ After connecting:
 - Click **Refresh** to reload bucket list
 
 ![Bucket Selection UI]
+
+
+## 🚀 Branching Rule
+
+### 1. Branch Naming
+Format: <tipe>/<deskripsi>
+- feature/: Fitur baru
+- bugfix/: Perbaikan bug biasa
+- hotfix/: Perbaikan urgent produksi
+- chore/: Maintenance/config
+- docs/: Dokumentasi
+- refactor/: Refactoring kode
+
+### 2. Commit Message
+Format: <type>(<scope>): <subject>
+  - Type: `feat, fix, chore, docs, style, refactor, test, perf`.
+  - Scope (Opsional): Bagian kode (api, ui, db).
+  - Subject: Ringkas, imperatif, huruf kecil, max 50 karakter, tanpa titik.
+  - Body/Footer (Opsional): Penjelasan detail & referensi issue (Closes #123).
+
+### 3. Tagging (SemVer)
+Format: v<major>.<minor>.<patch>
+- MAJOR: Perubahan tidak kompatibel (breaking changes).
+- MINOR: Fitur baru (kompatibel).
+- PATCH: Bug fix (kompatibel).
+- Aturan: Hanya tag di branch main setelah PR di-merge & build sukses.
