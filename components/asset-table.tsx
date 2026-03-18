@@ -126,7 +126,6 @@ export function AssetTable({
   };
 
   const breadcrumbs = getBreadcrumbs();
-
   return (
     <div className="flex flex-col gap-4">
       {/* Breadcrumb navigation */}
@@ -205,9 +204,23 @@ export function AssetTable({
                         {getDisplayName(obj.key, currentPrefix)}
                       </button>
                     ) : (
-                      <span className="font-medium">
-                        {getDisplayName(obj.key, currentPrefix)}
-                      </span>
+                      <div>
+                        {obj.previewUrl ? (
+                          <img
+                            src={obj.previewUrl}
+                            alt={obj.key}
+                            style={{ width: 100, height: 100, objectFit: 'cover' }}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          ''
+                        )}
+                        <span className="font-medium text-[12px] text-gray-500">
+                          {getDisplayName(obj.key, currentPrefix)}
+                        </span>
+                      </div>
                     )}
                   </TableCell>
 

@@ -24,7 +24,7 @@ import { LogOut, RefreshCw, Settings } from "lucide-react";
  */
 export function S3Manager() {
   // Authentication state
-  const [credentials, setCredentials] = useState<S3Credentials | null>(null);
+  const [credentials, setCredentials] = useState<S3Credentials | null>(getCredentials());
   const [isConnected, setIsConnected] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -49,6 +49,7 @@ export function S3Manager() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreatingBucket, setIsCreatingBucket] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   /**
    * Loads saved credentials from localStorage on component mount
@@ -57,11 +58,13 @@ export function S3Manager() {
   useEffect(() => {
     const saved = getCredentials();
     if (saved) {
-      setCredentials(saved);
+      setCredentials(credentials);
       if (saved.bucket) {
         setSelectedBucket(saved.bucket);
+        setIsConnected(true)
       }
     }
+    setMounted(true)
   }, []);
 
   /**
@@ -120,6 +123,27 @@ export function S3Manager() {
     }
   }, [credentials, buildCredentialParams]);
 
+
+  const getPresignedUrl = async (
+    key: string,
+    credentials: any,
+    bucket: string,
+    buildCredentialParams: () => string
+  ): Promise<string> => {
+    const params = new URLSearchParams({
+      ...Object.fromEntries(new URLSearchParams(buildCredentialParams())),
+      bucket,
+      key,
+    });
+
+    const response = await fetch(`/api/s3/presigned-url?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error('Failed to generate pre-signed URL');
+    }
+    const data = await response.json();
+    return data.url;
+  };
+
   /**
    * Fetches objects from the selected bucket
    * Supports pagination and folder navigation via prefix
@@ -142,7 +166,8 @@ export function S3Manager() {
           ),
           bucket: selectedBucket,
           prefix,
-          maxKeys: "20",
+          maxKeys: "10",
+          Key: 'image.jpg'
         });
         if (token) {
           params.set("continuationToken", token);
@@ -150,9 +175,33 @@ export function S3Manager() {
 
         const response = await fetch(`/api/s3/objects?${params.toString()}`);
         const data = await response.json();
-
+        
         if (data.objects) {
-          setObjects(data.objects);
+          const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
+          const enrichedObjects = await Promise.all(
+            data.objects.map(async (obj: any) => {
+              if (!obj.isFolder) {
+                const ext = obj.key.split('.').pop()?.toLowerCase();
+                if (imageExtensions.includes(ext)) {
+                  try {
+                    const previewUrl = await getPresignedUrl(
+                      obj.key,
+                      credentials,
+                      selectedBucket,
+                      buildCredentialParams
+                    );
+                    return { ...obj, previewUrl };
+                  } catch (err) {
+                    console.warn(`Failed to generate preview for ${obj.key}:`, err);
+                    return { ...obj, previewUrl: null };
+                  }
+                }
+              }
+              return { ...obj, previewUrl: null }; // non-image or folder
+            })
+          );
+          setObjects(enrichedObjects);
+          // setObjects(data.objects);
           setContinuationToken(data.nextContinuationToken);
           setHasMore(data.isTruncated);
           setCurrentPrefix(prefix);
@@ -391,6 +440,10 @@ export function S3Manager() {
     setObjects([]);
   };
 
+  if(!mounted){
+    return ('loading...')
+  }
+
   // Show credentials form if not connected or settings view is requested
   if (!isConnected || showSettings) {
     return (
@@ -454,28 +507,45 @@ export function S3Manager() {
               <CardTitle className="text-lg">Bucket Selection</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-wrap items-start gap-4">
                 <BucketSelector
                   buckets={buckets}
                   selectedBucket={selectedBucket}
                   onSelect={handleBucketSelect}
                   isLoading={isBucketsLoading}
                 />
-                <CreateBucketDialog
-                  onCreate={handleCreateBucket}
-                  isCreating={isCreatingBucket}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={fetchBuckets}
-                  disabled={isBucketsLoading}
-                >
-                  <RefreshCw
-                    className={`mr-2 h-4 w-4 ${isBucketsLoading ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </Button>
+                
+                <div className="flex-col flex gap-2">
+                    <label
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Create Bucket
+                    </label>
+
+                    <CreateBucketDialog
+                      onCreate={handleCreateBucket}
+                      isCreating={isCreatingBucket}
+                    />
+                </div>
+
+
+                <div className="flex-col flex gap-2">
+                    <label
+                      className="text-sm font-medium text-foreground"
+                    >
+                      &nbsp;
+                    </label>
+                    <Button
+                      variant="outline"
+                      onClick={fetchBuckets}
+                      disabled={isBucketsLoading}
+                    >
+                      <RefreshCw
+                        className={`mr-2 h-4 w-4 ${isBucketsLoading ? "animate-spin" : ""}`}
+                      />
+                      Refresh
+                    </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
