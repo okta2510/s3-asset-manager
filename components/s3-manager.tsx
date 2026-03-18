@@ -417,9 +417,9 @@ export function S3Manager() {
         const data = await response.json();
         throw new Error(data.error || "Delete failed");
       }
-
+      setObjects(objects.filter((obj) => obj.key !== deleteTarget));
       // Refresh objects list after deletion
-      fetchObjects(currentPrefix);
+      // fetchObjects(currentPrefix);
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
