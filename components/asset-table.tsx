@@ -223,7 +223,38 @@ export function AssetTable({
                         ) : (
                           ''
                         )}
-                        <a className="block" target="_blank" href={obj.previewUrl+''}>{obj.previewUrl+''}</a>
+                        {obj.previewUrl && (
+                          <div className="flex items-center gap-2">
+                            <a
+                              className="block max-w-[240px] truncate text-sm text-primary underline"
+                              target="_blank"
+                              rel="noreferrer"
+                              href={`${obj.previewUrl}`}
+                            >
+                              {`${obj.previewUrl}`}
+                            </a>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="xs"
+                              className="h-7 px-2 cursor-pointer text-[12px]"
+                              onClick={() => {
+                              navigator.clipboard.writeText(`${obj.previewUrl}`);
+                              const toast = document.createElement("div");
+                              toast.className =
+                                "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
+                              toast.textContent = "URL copied to clipboard!";
+                              document.body.appendChild(toast);
+                              setTimeout(() => {
+                                toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
+                                toast.addEventListener("animationend", () => toast.remove());
+                              }, 2000);
+                              }}
+                            >
+                              Copy URL
+                            </Button>
+                          </div>
+                        )}
                         <span className="font-medium text-[12px] text-gray-500">
                           {getDisplayName(obj.key, currentPrefix)}
                         </span>
@@ -249,6 +280,7 @@ export function AssetTable({
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="cursor-pointer"
                           onClick={() => onDownload(obj.key)}
                           title="Download"
                         >
@@ -263,7 +295,7 @@ export function AssetTable({
                         size="icon"
                         onClick={() => onDelete(obj.key)}
                         title="Delete"
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive cursor-pointer"
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete</span>

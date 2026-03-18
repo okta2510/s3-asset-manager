@@ -10,7 +10,7 @@ A secure, browser-based file manager for S3-compatible object storage (e.g., AWS
 - ✅ Connect to any S3-compatible endpoin t (AWS, NEO, MinIO, etc.)
 - 🗂️ Browse buckets & folders (prefix-based navigation)
 - 🖼️ Preview images via **pre-signed URLs** (secure, no public bucket required)
-- 📤 Upload files (multipart form data)
+- 📤 Upload single or multiple files (multipart form data)
 - 🗑️ Delete objects
 - 🔐 Credentials never exposed client-side — all sensitive operations handled server-side
 - 🌐 Responsive UI with React + Next.js App Router

@@ -315,31 +315,49 @@ export function S3Manager() {
    * @param file - File to upload
    * @param key - S3 object key
    */
-  const handleUpload = async (file: File, key: string) => {
+  const handleUpload = async (uploads: { file: File; key: string }[]) => {
     if (!credentials || !selectedBucket) return;
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("key", key);
-      formData.append("bucket", selectedBucket);
-      formData.append("endpoint", credentials.endpoint);
-      formData.append("region", credentials.region);
-      formData.append("accessKeyId", credentials.accessKeyId);
-      formData.append("secretAccessKey", credentials.secretAccessKey);
+      const results = await Promise.allSettled(
+        uploads.map(async ({ file, key }) => {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("key", key);
+          formData.append("bucket", selectedBucket);
+          formData.append("endpoint", credentials.endpoint);
+          formData.append("region", credentials.region);
+          formData.append("accessKeyId", credentials.accessKeyId);
+          formData.append("secretAccessKey", credentials.secretAccessKey);
 
-      const response = await fetch("/api/s3/objects", {
-        method: "POST",
-        body: formData,
-      });
+          const response = await fetch("/api/s3/objects", {
+            method: "POST",
+            body: formData,
+          });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Upload failed");
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || `Upload failed for ${key}`);
+          }
+        })
+      );
+
+      const failedUploads = results
+        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+        .map((result) => result.reason);
+
+      if (failedUploads.length > 0) {
+        const firstError = failedUploads[0];
+        const message = firstError instanceof Error ? firstError.message : "Upload failed";
+        throw new Error(
+          failedUploads.length === 1
+            ? message
+            : `${message} (${failedUploads.length} files failed)`
+        );
       }
 
       // Refresh objects list after upload
-      fetchObjects(currentPrefix);
+      await fetchObjects(currentPrefix);
     } finally {
       setIsUploading(false);
     }
@@ -527,7 +545,7 @@ export function S3Manager() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <h1 className="text-xl font-semibold">S3 Asset Manager</h1>
           <div className="flex items-center gap-2">
@@ -673,7 +691,7 @@ export function S3Manager() {
 
           {/* Connection info */}
           <div className="text-center text-sm text-muted-foreground">
-            Connected to: {credentials?.endpoint} ({credentials?.region})
+            Connected to: <span className={`${credentials?.endpoint || credentials?.region ? "font-mono bg-green-500 text-green-800" : " bg-gray-400"} font-bold px-2 py-1 rounded-2xl`}>{credentials?.endpoint} | Region: {credentials?.region}</span>
           </div>
         </div>
       </main>
