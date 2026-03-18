@@ -204,22 +204,28 @@ export function UploadDialog({
             />
           </div>
 
-          {/* Custom key/name input */}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="key">File Name (Key)</Label>
-            <Input
-              id="key"
-              value={customKey}
-              onChange={(e) => setCustomKey(e.target.value)}
-              placeholder={selectedFiles.length > 1 ? "Available for single-file uploads only" : "Enter file name"}
-              disabled={selectedFiles.length !== 1}
-            />
+          {/* Custom key/name input — only shown for single-file uploads */}
+          {selectedFiles.length <= 1 && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="key">File Name (Key)</Label>
+              <Input
+                id="key"
+                value={customKey}
+                onChange={(e) => setCustomKey(e.target.value)}
+                placeholder="Enter file name"
+                disabled={selectedFiles.length === 0}
+              />
+              <p className="text-xs text-muted-foreground">
+                The name the file will have in S3. You can include folders using slashes (e.g., images/photo.jpg)
+              </p>
+            </div>
+          )}
+
+          {selectedFiles.length > 1 && (
             <p className="text-xs text-muted-foreground">
-              {selectedFiles.length > 1
-                ? "Multiple files keep their original file names and upload into the current folder."
-                : "The name the file will have in S3. You can include folders using slashes (e.g., images/photo.jpg)"}
+              Each file will be uploaded using its original name into the current folder.
             </p>
-          </div>
+          )}
 
           {/* Error display */}
           {error && <p className="text-sm text-destructive">{error}</p>}
