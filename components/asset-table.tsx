@@ -24,6 +24,7 @@ import {
   Pencil,
   Check,
   X,
+  Search,
 } from "lucide-react";
 
 /**
@@ -116,6 +117,15 @@ export function AssetTable({
   const [renameValue, setRenameValue] = useState("");
   const [isSubmittingRename, setIsSubmittingRename] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredObjects = searchQuery.trim()
+    ? objects.filter((obj) =>
+        getDisplayName(obj.key, currentPrefix)
+          .toLowerCase()
+          .includes(searchQuery.trim().toLowerCase())
+      )
+    : objects;
 
   const handleRenameStart = (obj: (typeof objects)[number]) => {
     setRenamingKey(obj.key);
@@ -176,6 +186,27 @@ export function AssetTable({
   const breadcrumbs = getBreadcrumbs();
   return (
     <div className="flex flex-col gap-4">
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by file name…"
+          className="pl-8 h-9"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       {/* Breadcrumb navigation */}
       <nav className="flex items-center gap-1 text-sm" aria-label="Breadcrumb">
         {breadcrumbs.map((crumb, index) => (
@@ -219,18 +250,20 @@ export function AssetTable({
                   </div>
                 </TableCell>
               </TableRow>
-            ) : objects.length === 0 ? (
+            ) : filteredObjects.length === 0 ? (
               // Empty state
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center">
                   <p className="text-muted-foreground">
-                    No objects found in this location
+                    {searchQuery.trim()
+                      ? `No files matching "${searchQuery.trim()}"`
+                      : "No objects found in this location"}
                   </p>
                 </TableCell>
               </TableRow>
             ) : (
               // Object rows
-              objects.map((obj) => (
+              filteredObjects.map((obj) => (
                 <TableRow key={obj.key}>
                   {/* Type icon */}
                   <TableCell>
