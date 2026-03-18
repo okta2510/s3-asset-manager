@@ -1,6 +1,8 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -19,6 +21,9 @@ import {
   Folder,
   File,
   Trash2,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 
 /**
@@ -35,6 +40,8 @@ interface AssetTableProps {
   onDelete: (key: string) => void;
   /** Callback when user requests to download an object */
   onDownload: (key: string) => void;
+  /** Callback when user renames an object */
+  onRename?: (oldKey: string, newKey: string) => Promise<void>;
   /** Whether data is currently loading */
   isLoading?: boolean;
   /** Pagination state */
@@ -101,9 +108,46 @@ export function AssetTable({
   onNavigate,
   onDelete,
   onDownload,
+  onRename,
   isLoading = false,
   pagination,
 }: AssetTableProps) {
+  const [renamingKey, setRenamingKey] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isSubmittingRename, setIsSubmittingRename] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  const handleRenameStart = (obj: (typeof objects)[number]) => {
+    setRenamingKey(obj.key);
+    setRenameValue(getDisplayName(obj.key, currentPrefix));
+    setTimeout(() => renameInputRef.current?.focus(), 0);
+  };
+
+  const handleRenameConfirm = async (obj: (typeof objects)[number]) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === getDisplayName(obj.key, currentPrefix)) {
+      setRenamingKey(null);
+      return;
+    }
+    const newKey = obj.isFolder
+      ? currentPrefix + trimmed.replace(/\/$/, "") + "/"
+      : currentPrefix + trimmed;
+    setIsSubmittingRename(true);
+    try {
+      await onRename?.(obj.key, newKey);
+      setRenamingKey(null);
+    } catch {
+      // keep input open so user can retry or cancel
+    } finally {
+      setIsSubmittingRename(false);
+    }
+  };
+
+  const handleRenameCancel = () => {
+    setRenamingKey(null);
+    setRenameValue("");
+  };
+
   /**
    * Handles clicking on a folder to navigate into it
    * @param key - The folder's S3 key
@@ -161,7 +205,7 @@ export function AssetTable({
               <TableHead>Name</TableHead>
               <TableHead className="w-32">Size</TableHead>
               <TableHead className="w-48">Last Modified</TableHead>
-              <TableHead className="w-28 text-right">Actions</TableHead>
+              <TableHead className="w-36 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -197,9 +241,45 @@ export function AssetTable({
                     )}
                   </TableCell>
 
-                  {/* Name (clickable for folders) */}
+                  {/* Name — inline-editable when renaming */}
                   <TableCell>
-                    {obj.isFolder ? (
+                    {renamingKey === obj.key ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          ref={renameInputRef}
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRenameConfirm(obj);
+                            if (e.key === "Escape") handleRenameCancel();
+                          }}
+                          className="h-7 text-sm"
+                          disabled={isSubmittingRename}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-green-600 hover:text-green-700"
+                          onClick={() => handleRenameConfirm(obj)}
+                          disabled={isSubmittingRename}
+                          title="Confirm rename"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={handleRenameCancel}
+                          disabled={isSubmittingRename}
+                          title="Cancel"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : obj.isFolder ? (
                       <button
                         type="button"
                         onClick={() => handleFolderClick(obj.key)}
@@ -283,9 +363,25 @@ export function AssetTable({
                           className="cursor-pointer"
                           onClick={() => onDownload(obj.key)}
                           title="Download"
+                          disabled={renamingKey !== null}
                         >
                           <Download className="h-4 w-4" />
                           <span className="sr-only">Download</span>
+                        </Button>
+                      )}
+
+                      {/* Rename button */}
+                      {onRename && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="cursor-pointer"
+                          onClick={() => handleRenameStart(obj)}
+                          title="Rename"
+                          disabled={renamingKey !== null}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Rename</span>
                         </Button>
                       )}
 
@@ -296,6 +392,7 @@ export function AssetTable({
                         onClick={() => onDelete(obj.key)}
                         title="Delete"
                         className="text-destructive hover:text-destructive cursor-pointer"
+                        disabled={renamingKey !== null}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete</span>

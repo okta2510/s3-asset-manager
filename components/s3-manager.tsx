@@ -445,6 +445,30 @@ export function S3Manager() {
   };
 
   /**
+   * Handles renaming an S3 object (copy to new key + delete old key)
+   * @param oldKey - Current object key
+   * @param newKey - Target object key
+   */
+  const handleRename = async (oldKey: string, newKey: string) => {
+    if (!credentials || !selectedBucket) return;
+    const response = await fetch("/api/s3/objects", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...credentials,
+        bucket: selectedBucket,
+        oldKey,
+        newKey,
+      }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Rename failed");
+    }
+    await fetchObjects(currentPrefix);
+  };
+
+  /**
    * Handles file download by generating pre-signed URL
    * @param key - Key of object to download
    */
@@ -673,6 +697,7 @@ export function S3Manager() {
                   onNavigate={handleNavigate}
                   onDelete={(key) => setDeleteTarget(key)}
                   onDownload={handleDownload}
+                  onRename={handleRename}
                   isLoading={isObjectsLoading}
                   pagination={{
                     hasMore,

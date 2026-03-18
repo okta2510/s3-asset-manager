@@ -4,6 +4,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
+  CopyObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
@@ -254,6 +255,57 @@ export async function DELETE(request: Request) {
         error:
           error instanceof Error ? error.message : "Failed to delete object",
       },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/s3/objects
+ * Renames an object by copying it to a new key then deleting the original.
+ * S3 has no native rename — copy + delete is the standard pattern.
+ */
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { endpoint, region, accessKeyId, secretAccessKey, bucket, oldKey, newKey } = body;
+
+    if (!endpoint || !region || !accessKeyId || !secretAccessKey || !bucket || !oldKey || !newKey) {
+      return NextResponse.json(
+        { error: "Missing required parameters: endpoint, region, accessKeyId, secretAccessKey, bucket, oldKey, newKey" },
+        { status: 400 }
+      );
+    }
+
+    const client = createS3Client({ endpoint, region, accessKeyId, secretAccessKey });
+
+    // Copy to the new key
+    await client.send(
+      new CopyObjectCommand({
+        Bucket: bucket,
+        CopySource: `${bucket}/${oldKey}`,
+        Key: newKey,
+        ACL: "public-read",
+      })
+    );
+
+    // Delete the original key
+    await client.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: oldKey,
+      })
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: `Renamed "${oldKey}" to "${newKey}"`,
+      newKey,
+    });
+  } catch (error) {
+    console.error("Error renaming object:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to rename object" },
       { status: 500 }
     );
   }
