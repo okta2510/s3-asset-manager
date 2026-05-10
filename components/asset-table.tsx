@@ -676,16 +676,27 @@ export function AssetTable({
                         size="xs"
                         className="h-6 w-full cursor-pointer text-[11px]"
                         onClick={() => {
-                          navigator.clipboard.writeText(obj.previewUrl!);
-                          const toast = document.createElement("div");
-                          toast.className =
-                            "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
-                          toast.textContent = "URL copied to clipboard!";
-                          document.body.appendChild(toast);
-                          setTimeout(() => {
-                            toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
-                            toast.addEventListener("animationend", () => toast.remove());
-                          }, 2000);
+                          navigator.clipboard.writeText(obj.previewUrl!).then(() => {
+                            const toast = document.createElement("div");
+                            toast.className =
+                              "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
+                            toast.textContent = "URL copied to clipboard!";
+                            document.body.appendChild(toast);
+                            setTimeout(() => {
+                              toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
+                              toast.addEventListener("animationend", () => toast.remove());
+                            }, 2000);
+                          }).catch(() => {
+                            const toast = document.createElement("div");
+                            toast.className =
+                              "fixed bottom-4 right-4 z-50 rounded-md bg-destructive text-destructive-foreground border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
+                            toast.textContent = "Failed to copy URL.";
+                            document.body.appendChild(toast);
+                            setTimeout(() => {
+                              toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
+                              toast.addEventListener("animationend", () => toast.remove());
+                            }, 2000);
+                          });
                         }}
                       >
                         Copy URL
