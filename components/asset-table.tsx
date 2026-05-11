@@ -661,16 +661,14 @@ export function AssetTable({
                       {obj.isFolder ? (
                         <Folder className="h-12 w-12 text-amber-500" />
                       ) : obj.previewUrl ? (
-                        <a href={obj.previewUrl} target="_blank" rel="noreferrer" className="h-full w-full">
-                          <img
-                            src={obj.previewUrl}
-                            alt={displayName}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = "none";
-                            }}
-                          />
-                        </a>
+                        <img
+                          src={obj.previewUrl}
+                          alt={displayName}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
                       ) : (
                         <File className="h-10 w-10 text-muted-foreground" />
                       )}
@@ -717,20 +715,9 @@ export function AssetTable({
                       </div>
                     ) : (
                       <div>
-                        {obj.isFolder ? (
-                          <button
-                            type="button"
-                            onClick={() => handleFolderClick(obj.key)}
-                            className="w-full truncate text-left text-sm font-medium hover:text-primary hover:underline"
-                            title={displayName}
-                          >
-                            {displayName}
-                          </button>
-                        ) : (
-                          <p className="truncate text-sm font-medium" title={displayName}>
-                            {displayName}
-                          </p>
-                        )}
+                        <p className="truncate text-sm font-medium" title={displayName}>
+                          {displayName}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {formatFileSize(obj.size)}
                           {obj.lastModified && (
@@ -746,7 +733,7 @@ export function AssetTable({
                         type="button"
                         variant="outline"
                         size="xs"
-                        className="h-6 w-full cursor-pointer text-[11px]"
+                        className="h-6 w-full text-[11px]"
                         onClick={() => {
                           navigator.clipboard.writeText(obj.previewUrl!).then(() => {
                             const toast = document.createElement("div");
@@ -782,7 +769,7 @@ export function AssetTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 cursor-pointer"
+                            className="h-7 w-7"
                             onClick={() => onDownload(obj.key)}
                             title="Download"
                             disabled={renamingKey !== null}
@@ -795,7 +782,7 @@ export function AssetTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 cursor-pointer"
+                            className="h-7 w-7"
                             onClick={() => handleRenameStart(obj)}
                             title="Rename"
                             disabled={renamingKey !== null}
@@ -807,7 +794,7 @@ export function AssetTable({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 cursor-pointer text-destructive hover:text-destructive"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
                           onClick={() => onDelete(obj.key)}
                           title="Delete"
                           disabled={renamingKey !== null}
