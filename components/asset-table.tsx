@@ -554,18 +554,28 @@ export function AssetTable({
                     ) : (
                       <div>
                         {obj.previewUrl ? (
-                          <a href={obj.previewUrl} target="_blank">
-                          <img
-                            src={obj.previewUrl}
-                            alt={obj.key}
-                            style={{ width: 100, height: 100, objectFit: 'cover' }}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                          </a>
+                          <button
+                            type="button"
+                            className="cursor-pointer"
+                            onClick={() =>
+                              setPreviewImage({
+                                url: obj.previewUrl!,
+                                name: getDisplayName(obj.key, currentPrefix),
+                              })
+                            }
+                            title="Open large image preview"
+                          >
+                            <img
+                              src={obj.previewUrl}
+                              alt={obj.key}
+                              style={{ width: 100, height: 100, objectFit: "cover" }}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          </button>
                         ) : (
-                          ''
+                          ""
                         )}
                         {obj.previewUrl && (
                           <div className="flex items-center gap-2">
