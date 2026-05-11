@@ -183,6 +183,10 @@ export function AssetTable({
     return sortDir === "asc" ? cmp : -cmp;
   });
 
+  const visibleObjects = sortedObjects.filter(
+    (obj) => obj.isFolder || Boolean(obj.lastModified) || obj.size > 0
+  );
+
   /** Toggles sort: if already on this field, flip direction; otherwise set field + asc */
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -463,7 +467,7 @@ export function AssetTable({
                   </div>
                 </TableCell>
               </TableRow>
-            ) : sortedObjects.length === 0 ? (
+            ) : visibleObjects.length === 0 ? (
               // Empty state
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center">
@@ -476,7 +480,7 @@ export function AssetTable({
               </TableRow>
             ) : (
               // Object rows
-              sortedObjects.map((obj) => (
+              visibleObjects.map((obj) => (
                 <TableRow key={obj.key}>
                   {/* Type icon */}
                   <TableCell>
@@ -653,7 +657,7 @@ export function AssetTable({
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               <span className="ml-2">Loading assets...</span>
             </div>
-          ) : sortedObjects.length === 0 ? (
+          ) : visibleObjects.length === 0 ? (
             <div className="flex h-32 items-center justify-center">
               <p className="text-muted-foreground">
                 {searchQuery.trim()
@@ -663,7 +667,7 @@ export function AssetTable({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {sortedObjects.map((obj) => {
+              {visibleObjects.map((obj) => {
                 const displayName = getDisplayName(obj.key, currentPrefix);
                 const isRenaming = renamingKey === obj.key;
                 return (
