@@ -183,8 +183,22 @@ export function AssetTable({
     return sortDir === "asc" ? cmp : -cmp;
   });
 
+  const hasAnyDisplayMetadata = (obj: (typeof objects)[number]) => {
+    const lastModifiedTime = obj.lastModified
+      ? new Date(obj.lastModified).getTime()
+      : Number.NaN;
+    const hasLastModified = Number.isFinite(lastModifiedTime) && lastModifiedTime > 0;
+    const hasPreviewUrl =
+      typeof obj.previewUrl === "string"
+        ? obj.previewUrl.trim().length > 0
+        : Boolean(obj.previewUrl);
+    const hasSize = typeof obj.size === "number" ? obj.size > 0 : Boolean(obj.size);
+
+    return hasLastModified || hasPreviewUrl || hasSize;
+  };
+
   const visibleObjects = sortedObjects.filter(
-    (obj) => obj.isFolder || obj.lastModified != null || obj.size > 0
+    (obj) => obj.isFolder || hasAnyDisplayMetadata(obj)
   );
 
   /** Toggles sort: if already on this field, flip direction; otherwise set field + asc */
