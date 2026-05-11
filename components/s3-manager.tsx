@@ -282,6 +282,12 @@ export function S3Manager() {
     fetchObjects(prefix, undefined, false);
   };
 
+  const handleSortChange = useCallback(() => {
+    setCurrentPage(1);
+    setPageHistory([]);
+    fetchObjects(currentPrefix, undefined, false);
+  }, [currentPrefix, fetchObjects]);
+
   /**
    * Refreshes current folder from first page to keep pagination state in sync.
    */
@@ -706,6 +712,7 @@ export function S3Manager() {
                   onDelete={(key) => setDeleteTarget(key)}
                   onDownload={handleDownload}
                   onRename={handleRename}
+                  onSortChange={handleSortChange}
                   isLoading={isObjectsLoading}
                   pagination={{
                     hasMore,

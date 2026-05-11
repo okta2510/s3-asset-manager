@@ -59,6 +59,8 @@ interface AssetTableProps {
   onDownload: (key: string) => void;
   /** Callback when user renames an object */
   onRename?: (oldKey: string, newKey: string) => Promise<void>;
+  /** Callback when user changes sort field/direction */
+  onSortChange?: (sort: { field: SortField; dir: SortDir }) => void;
   /** Whether data is currently loading */
   isLoading?: boolean;
   /** Pagination state */
@@ -126,6 +128,7 @@ export function AssetTable({
   onDelete,
   onDownload,
   onRename,
+  onSortChange,
   isLoading = false,
   pagination,
 }: AssetTableProps) {
@@ -201,14 +204,16 @@ export function AssetTable({
     (obj) => obj.isFolder || hasAnyDisplayMetadata(obj)
   );
 
+  const applySort = (field: SortField, dir: SortDir) => {
+    setSortField(field);
+    setSortDir(dir);
+    onSortChange?.({ field, dir });
+  };
+
   /** Toggles sort: if already on this field, flip direction; otherwise set field + asc */
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDir("asc");
-    }
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    applySort(field, nextDir);
   };
 
   /** Returns the icon to display next to a column header */
@@ -221,27 +226,22 @@ export function AssetTable({
 
   const handleSortOptionChange = (option: SortOption) => {
     if (option === "name-asc") {
-      setSortField("name");
-      setSortDir("asc");
+      applySort("name", "asc");
       return;
     }
     if (option === "name-desc") {
-      setSortField("name");
-      setSortDir("desc");
+      applySort("name", "desc");
       return;
     }
     if (option === "size") {
-      setSortField("size");
-      setSortDir("asc");
+      applySort("size", "asc");
       return;
     }
     if (option === "type") {
-      setSortField("type");
-      setSortDir("asc");
+      applySort("type", "asc");
       return;
     }
-    setSortField("lastModified");
-    setSortDir("asc");
+    applySort("lastModified", "asc");
   };
 
   const isNestedInteractiveElement = (target: EventTarget | null) =>
@@ -554,18 +554,28 @@ export function AssetTable({
                     ) : (
                       <div>
                         {obj.previewUrl ? (
-                          <a href={obj.previewUrl} target="_blank">
-                          <img
-                            src={obj.previewUrl}
-                            alt={obj.key}
-                            style={{ width: 100, height: 100, objectFit: 'cover' }}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                          </a>
+                          <button
+                            type="button"
+                            className="cursor-pointer"
+                            onClick={() =>
+                              setPreviewImage({
+                                url: obj.previewUrl!,
+                                name: getDisplayName(obj.key, currentPrefix),
+                              })
+                            }
+                            title="Open large image preview"
+                          >
+                            <img
+                              src={obj.previewUrl}
+                              alt={obj.key}
+                              style={{ width: 100, height: 100, objectFit: "cover" }}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          </button>
                         ) : (
-                          ''
+                          ""
                         )}
                         {obj.previewUrl && (
                           <div className="flex items-center gap-2">
