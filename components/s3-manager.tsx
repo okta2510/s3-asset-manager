@@ -283,6 +283,15 @@ export function S3Manager() {
   };
 
   /**
+   * Refreshes current folder from first page to keep pagination state in sync.
+   */
+  const refreshCurrentPrefix = async () => {
+    setCurrentPage(1);
+    setPageHistory([]);
+    await fetchObjects(currentPrefix, undefined, false);
+  };
+
+  /**
    * Loads next page of objects
    */
   const handleLoadMore = () => {
@@ -400,8 +409,8 @@ export function S3Manager() {
         throw new Error(errorData.error || `Failed to create folder "${folderName}"`);
       }
 
-      // Refresh the object list to show the new folder
-      await fetchObjects(currentPrefix);
+      // Refresh list after creating folder
+      await refreshCurrentPrefix();
 
       // Optional: show success feedback
       console.log(`Folder created: ${folderKey}`);
@@ -435,9 +444,8 @@ export function S3Manager() {
         const data = await response.json();
         throw new Error(data.error || "Delete failed");
       }
-      setObjects(objects.filter((obj) => obj.key !== deleteTarget));
-      // Refresh objects list after deletion
-      // fetchObjects(currentPrefix);
+      // Refresh list after deletion
+      await refreshCurrentPrefix();
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
