@@ -702,7 +702,7 @@ export function AssetTable({
                      }}
                   >
                     {/* Preview / icon */}
-                    <div className="flex h-24 items-center justify-center overflow-hidden rounded-md bg-muted">
+                    <div className="flex h-[160px] items-center justify-center overflow-hidden rounded-md bg-muted">
                       {obj.isFolder ? (
                         <Folder className="h-12 w-12 text-amber-500" />
                       ) : obj.previewUrl ? (
