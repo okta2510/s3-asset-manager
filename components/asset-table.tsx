@@ -33,7 +33,7 @@ import {
 type SortField = "name" | "size" | "lastModified" | "type";
 type SortDir = "asc" | "desc";
 type ViewMode = "list" | "grid";
-type SortOption = "name-asc" | "name-desc" | "size" | "type";
+type SortOption = "name-asc" | "name-desc" | "size" | "type" | "last-modified";
 
 /**
  * Props for the AssetTable component
@@ -133,6 +133,7 @@ export function AssetTable({
     if (sortField === "name") return sortDir === "asc" ? "name-asc" : "name-desc";
     if (sortField === "size") return "size";
     if (sortField === "type") return "type";
+    if (sortField === "lastModified") return "last-modified";
     return "name-asc";
   })();
 
@@ -205,19 +206,27 @@ export function AssetTable({
       setSortDir("asc");
       return;
     }
-    setSortField("type");
+    if (option === "type") {
+      setSortField("type");
+      setSortDir("asc");
+      return;
+    }
+    setSortField("lastModified");
     setSortDir("asc");
   };
 
-  const isInteractiveGridTarget = (target: EventTarget | null) =>
+  const isNestedInteractiveElement = (target: EventTarget | null) =>
     target instanceof Element &&
     !!target.closest("button, a, input, select, textarea, label");
 
   const showToast = (message: string, isError = false) => {
     const toast = document.createElement("div");
-    toast.className = isError
-      ? "fixed bottom-4 right-4 z-50 rounded-md bg-destructive text-destructive-foreground border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2"
-      : "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
+    const baseClass =
+      "fixed bottom-4 right-4 z-50 rounded-md border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
+    const variantClass = isError
+      ? "bg-destructive text-destructive-foreground"
+      : "bg-background";
+    toast.className = `${baseClass} ${variantClass}`;
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => {
@@ -330,6 +339,7 @@ export function AssetTable({
           <option value="name-desc">Name (Z-A)</option>
           <option value="size">Size</option>
           <option value="type">File type</option>
+          <option value="last-modified">Last modified</option>
         </select>
 
         {/* View mode toggle */}
@@ -649,11 +659,11 @@ export function AssetTable({
                     role="button"
                     tabIndex={0}
                     onClick={(e) => {
-                      if (isInteractiveGridTarget(e.target)) return;
+                      if (isNestedInteractiveElement(e.target)) return;
                       handleGridCardOpen(obj);
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
+                      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
                         e.preventDefault();
                         handleGridCardOpen(obj);
                       }
