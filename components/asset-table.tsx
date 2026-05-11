@@ -129,16 +129,12 @@ export function AssetTable({
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const sortOption: SortOption =
-    sortField === "name"
-      ? sortDir === "asc"
-        ? "name-asc"
-        : "name-desc"
-      : sortField === "size"
-      ? "size"
-      : sortField === "type"
-      ? "type"
-      : "name-asc";
+  const sortOption: SortOption = (() => {
+    if (sortField === "name") return sortDir === "asc" ? "name-asc" : "name-desc";
+    if (sortField === "size") return "size";
+    if (sortField === "type") return "type";
+    return "name-asc";
+  })();
 
   const filteredObjects = searchQuery.trim()
     ? objects.filter((obj) =>
@@ -216,6 +212,19 @@ export function AssetTable({
   const isInteractiveGridTarget = (target: EventTarget | null) =>
     target instanceof Element &&
     !!target.closest("button, a, input, select, textarea, label");
+
+  const showToast = (message: string, isError = false) => {
+    const toast = document.createElement("div");
+    toast.className = isError
+      ? "fixed bottom-4 right-4 z-50 rounded-md bg-destructive text-destructive-foreground border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2"
+      : "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
+      toast.addEventListener("animationend", () => toast.remove());
+    }, 2000);
+  };
 
   const handleGridCardOpen = (obj: (typeof objects)[number]) => {
     if (renamingKey !== null) return;
@@ -532,16 +541,10 @@ export function AssetTable({
                               size="xs"
                               className="h-7 px-2 cursor-pointer text-[12px]"
                               onClick={() => {
-                              navigator.clipboard.writeText(`${obj.previewUrl}`);
-                              const toast = document.createElement("div");
-                              toast.className =
-                                "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
-                              toast.textContent = "URL copied to clipboard!";
-                              document.body.appendChild(toast);
-                              setTimeout(() => {
-                                toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
-                                toast.addEventListener("animationend", () => toast.remove());
-                              }, 2000);
+                                navigator.clipboard
+                                  .writeText(`${obj.previewUrl}`)
+                                  .then(() => showToast("URL copied to clipboard!"))
+                                  .catch(() => showToast("Failed to copy URL.", true));
                               }}
                             >
                               Copy URL
@@ -735,27 +738,10 @@ export function AssetTable({
                         size="xs"
                         className="h-6 w-full text-[11px]"
                         onClick={() => {
-                          navigator.clipboard.writeText(obj.previewUrl!).then(() => {
-                            const toast = document.createElement("div");
-                            toast.className =
-                              "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
-                            toast.textContent = "URL copied to clipboard!";
-                            document.body.appendChild(toast);
-                            setTimeout(() => {
-                              toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
-                              toast.addEventListener("animationend", () => toast.remove());
-                            }, 2000);
-                          }).catch(() => {
-                            const toast = document.createElement("div");
-                            toast.className =
-                              "fixed bottom-4 right-4 z-50 rounded-md bg-destructive text-destructive-foreground border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
-                            toast.textContent = "Failed to copy URL.";
-                            document.body.appendChild(toast);
-                            setTimeout(() => {
-                              toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
-                              toast.addEventListener("animationend", () => toast.remove());
-                            }, 2000);
-                          });
+                          navigator.clipboard
+                            .writeText(obj.previewUrl!)
+                            .then(() => showToast("URL copied to clipboard!"))
+                            .catch(() => showToast("Failed to copy URL.", true));
                         }}
                       >
                         Copy URL
