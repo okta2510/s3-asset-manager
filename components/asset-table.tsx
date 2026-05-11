@@ -184,7 +184,7 @@ export function AssetTable({
   });
 
   const visibleObjects = sortedObjects.filter(
-    (obj) => obj.isFolder || Boolean(obj.lastModified) || obj.size > 0
+    (obj) => obj.isFolder || obj.lastModified != null || obj.size > 0
   );
 
   /** Toggles sort: if already on this field, flip direction; otherwise set field + asc */
@@ -681,7 +681,7 @@ export function AssetTable({
                       handleGridCardOpen(obj);
                     }}
                      onKeyDown={(e) => {
-                       if (e.key === "Enter" || e.key === " " || e.code === "Space") {
+                       if (e.key === "Enter" || e.key === " ") {
                          e.preventDefault();
                          handleGridCardOpen(obj);
                        }
