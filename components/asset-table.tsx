@@ -681,7 +681,7 @@ export function AssetTable({
                       handleGridCardOpen(obj);
                     }}
                      onKeyDown={(e) => {
-                       if (e.key === "Enter" || e.code === "Space") {
+                       if (e.key === "Enter" || e.key === " " || e.code === "Space") {
                          e.preventDefault();
                          handleGridCardOpen(obj);
                        }
