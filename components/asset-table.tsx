@@ -4,6 +4,14 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -14,8 +22,6 @@ import {
 import type { S3Object } from "@/lib/types";
 import {
   ChevronLeft,
-  ChevronsLeft,
-  ChevronsRight,
   ChevronRight,
   Download,
   Folder,
@@ -25,7 +31,17 @@ import {
   Check,
   X,
   Search,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  LayoutGrid,
+  LayoutList,
 } from "lucide-react";
+
+type SortField = "name" | "size" | "lastModified" | "type";
+type SortDir = "asc" | "desc";
+type ViewMode = "list" | "grid";
+type SortOption = "name-asc" | "name-desc" | "size" | "type" | "last-modified";
 
 /**
  * Props for the AssetTable component
@@ -43,6 +59,8 @@ interface AssetTableProps {
   onDownload: (key: string) => void;
   /** Callback when user renames an object */
   onRename?: (oldKey: string, newKey: string) => Promise<void>;
+  /** Callback when user changes sort field/direction */
+  onSortChange?: (sort: { field: SortField; dir: SortDir }) => void;
   /** Whether data is currently loading */
   isLoading?: boolean;
   /** Pagination state */
@@ -110,6 +128,7 @@ export function AssetTable({
   onDelete,
   onDownload,
   onRename,
+  onSortChange,
   isLoading = false,
   pagination,
 }: AssetTableProps) {
@@ -118,6 +137,19 @@ export function AssetTable({
   const [isSubmittingRename, setIsSubmittingRename] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(
+    null
+  );
+  const sortOption: SortOption = (() => {
+    if (sortField === "name") return sortDir === "asc" ? "name-asc" : "name-desc";
+    if (sortField === "size") return "size";
+    if (sortField === "type") return "type";
+    if (sortField === "lastModified") return "last-modified";
+    return "name-asc";
+  })();
 
   const filteredObjects = searchQuery.trim()
     ? objects.filter((obj) =>
@@ -126,6 +158,127 @@ export function AssetTable({
           .includes(searchQuery.trim().toLowerCase())
       )
     : objects;
+
+  /**
+   * Applies the active sort to the filtered list.
+   * Folders are always grouped before files.
+   */
+  const sortedObjects = [...filteredObjects].sort((a, b) => {
+    // Folders always first, regardless of sort direction
+    if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+
+    let cmp = 0;
+    if (sortField === "name") {
+      cmp = getDisplayName(a.key, currentPrefix).localeCompare(
+        getDisplayName(b.key, currentPrefix)
+      );
+    } else if (sortField === "size") {
+      cmp = a.size - b.size;
+    } else if (sortField === "lastModified") {
+      const aTime = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+      const bTime = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+      cmp = aTime - bTime;
+    } else if (sortField === "type") {
+      const aExt = a.key.split(".").pop()?.toLowerCase() ?? "";
+      const bExt = b.key.split(".").pop()?.toLowerCase() ?? "";
+      cmp = aExt.localeCompare(bExt);
+    }
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const hasAnyDisplayMetadata = (obj: (typeof objects)[number]) => {
+    const lastModifiedTime = obj.lastModified
+      ? new Date(obj.lastModified).getTime()
+      : Number.NaN;
+    const hasLastModified = Number.isFinite(lastModifiedTime) && lastModifiedTime > 0;
+    const hasPreviewUrl =
+      typeof obj.previewUrl === "string"
+        ? obj.previewUrl.trim().length > 0
+        : Boolean(obj.previewUrl);
+    const hasSize = typeof obj.size === "number" ? obj.size > 0 : Boolean(obj.size);
+
+    return hasLastModified || hasPreviewUrl || hasSize;
+  };
+
+  const visibleObjects = sortedObjects.filter(
+    (obj) => obj.isFolder || hasAnyDisplayMetadata(obj)
+  );
+
+  const applySort = (field: SortField, dir: SortDir) => {
+    setSortField(field);
+    setSortDir(dir);
+    onSortChange?.({ field, dir });
+  };
+
+  /** Toggles sort: if already on this field, flip direction; otherwise set field + asc */
+  const handleSort = (field: SortField) => {
+    const nextDir = sortField === field ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    applySort(field, nextDir);
+  };
+
+  /** Returns the icon to display next to a column header */
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-40" />;
+    return sortDir === "asc"
+      ? <ArrowUp className="ml-1 h-3 w-3 inline" />
+      : <ArrowDown className="ml-1 h-3 w-3 inline" />;
+  };
+
+  const handleSortOptionChange = (option: SortOption) => {
+    if (option === "name-asc") {
+      applySort("name", "asc");
+      return;
+    }
+    if (option === "name-desc") {
+      applySort("name", "desc");
+      return;
+    }
+    if (option === "size") {
+      applySort("size", "asc");
+      return;
+    }
+    if (option === "type") {
+      applySort("type", "asc");
+      return;
+    }
+    applySort("lastModified", "asc");
+  };
+
+  const isNestedInteractiveElement = (target: EventTarget | null) =>
+    target instanceof Element &&
+    !!target.closest("button, a, input, select, textarea, label");
+
+  const showToast = (message: string, isError = false) => {
+    const toast = document.createElement("div");
+    const baseClass =
+      "fixed bottom-4 right-4 z-50 rounded-md border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
+    const variantClass = isError
+      ? "bg-destructive text-destructive-foreground"
+      : "bg-background";
+    toast.className = `${baseClass} ${variantClass}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
+      toast.addEventListener("animationend", () => toast.remove());
+    }, 2000);
+  };
+
+  const handleGridCardOpen = (obj: (typeof objects)[number]) => {
+    if (renamingKey !== null) return;
+    if (obj.isFolder) {
+      onNavigate(obj.key);
+      return;
+    }
+    if (obj.previewUrl) {
+      setPreviewImage({
+        url: obj.previewUrl,
+        name: getDisplayName(obj.key, currentPrefix),
+      });
+      return;
+    }
+    onDownload(obj.key);
+  };
 
   const handleRenameStart = (obj: (typeof objects)[number]) => {
     setRenamingKey(obj.key);
@@ -186,25 +339,66 @@ export function AssetTable({
   const breadcrumbs = getBreadcrumbs();
   return (
     <div className="flex flex-col gap-4">
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by file name…"
-          className="pl-8 h-9"
-        />
-        {searchQuery && (
-          <button
+      {/* Search + view toggle bar */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by file name…"
+            className="pl-8 h-9"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <select
+          value={sortOption}
+          onChange={(e) => handleSortOptionChange(e.target.value as SortOption)}
+          className="h-9 rounded-md border bg-background px-2 text-sm"
+          aria-label="Sort assets"
+        >
+          <option value="name-asc">Name (A-Z)</option>
+          <option value="name-desc">Name (Z-A)</option>
+          <option value="size">Size</option>
+          <option value="type">File type</option>
+          <option value="last-modified">Last modified</option>
+        </select>
+
+        {/* View mode toggle */}
+        <div className="flex items-center rounded-md border shrink-0">
+          <Button
             type="button"
-            onClick={() => setSearchQuery("")}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label="Clear search"
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="icon"
+            className="h-9 w-9 rounded-r-none"
+            onClick={() => setViewMode("list")}
+            title="List view"
           >
-            <X className="h-4 w-4" />
-          </button>
-        )}
+            <LayoutList className="h-4 w-4" />
+            <span className="sr-only">List view</span>
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === "grid" ? "default" : "ghost"}
+            size="icon"
+            className="h-9 w-9 rounded-l-none border-l"
+            onClick={() => setViewMode("grid")}
+            title="Grid view"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            <span className="sr-only">Grid view</span>
+          </Button>
+        </div>
       </div>
 
       {/* Breadcrumb navigation */}
@@ -227,15 +421,52 @@ export function AssetTable({
         ))}
       </nav>
 
-      {/* Main table */}
+      {/* Main content — list or grid */}
+      {viewMode === "list" ? (
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">Type</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead className="w-32">Size</TableHead>
-              <TableHead className="w-48">Last Modified</TableHead>
+              <TableHead className="w-12">
+                <button
+                  type="button"
+                  className="flex items-center hover:text-foreground"
+                  onClick={() => handleSort("type")}
+                >
+                  Type
+                  <SortIcon field="type" />
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  className="flex items-center hover:text-foreground"
+                  onClick={() => handleSort("name")}
+                >
+                  Name
+                  <SortIcon field="name" />
+                </button>
+              </TableHead>
+              <TableHead className="w-32">
+                <button
+                  type="button"
+                  className="flex items-center hover:text-foreground"
+                  onClick={() => handleSort("size")}
+                >
+                  Size
+                  <SortIcon field="size" />
+                </button>
+              </TableHead>
+              <TableHead className="w-48">
+                <button
+                  type="button"
+                  className="flex items-center hover:text-foreground"
+                  onClick={() => handleSort("lastModified")}
+                >
+                  Last Modified
+                  <SortIcon field="lastModified" />
+                </button>
+              </TableHead>
               <TableHead className="w-36 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -250,7 +481,7 @@ export function AssetTable({
                   </div>
                 </TableCell>
               </TableRow>
-            ) : filteredObjects.length === 0 ? (
+            ) : visibleObjects.length === 0 ? (
               // Empty state
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center">
@@ -263,7 +494,7 @@ export function AssetTable({
               </TableRow>
             ) : (
               // Object rows
-              filteredObjects.map((obj) => (
+              visibleObjects.map((obj) => (
                 <TableRow key={obj.key}>
                   {/* Type icon */}
                   <TableCell>
@@ -323,18 +554,28 @@ export function AssetTable({
                     ) : (
                       <div>
                         {obj.previewUrl ? (
-                          <a href={obj.previewUrl} target="_blank">
-                          <img
-                            src={obj.previewUrl}
-                            alt={obj.key}
-                            style={{ width: 100, height: 100, objectFit: 'cover' }}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                          </a>
+                          <button
+                            type="button"
+                            className="cursor-pointer"
+                            onClick={() =>
+                              setPreviewImage({
+                                url: obj.previewUrl!,
+                                name: getDisplayName(obj.key, currentPrefix),
+                              })
+                            }
+                            title="Open large image preview"
+                          >
+                            <img
+                              src={obj.previewUrl}
+                              alt={obj.key}
+                              style={{ width: 100, height: 100, objectFit: "cover" }}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          </button>
                         ) : (
-                          ''
+                          ""
                         )}
                         {obj.previewUrl && (
                           <div className="flex items-center gap-2">
@@ -352,16 +593,10 @@ export function AssetTable({
                               size="xs"
                               className="h-7 px-2 cursor-pointer text-[12px]"
                               onClick={() => {
-                              navigator.clipboard.writeText(`${obj.previewUrl}`);
-                              const toast = document.createElement("div");
-                              toast.className =
-                                "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
-                              toast.textContent = "URL copied to clipboard!";
-                              document.body.appendChild(toast);
-                              setTimeout(() => {
-                                toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
-                                toast.addEventListener("animationend", () => toast.remove());
-                              }, 2000);
+                                navigator.clipboard
+                                  .writeText(`${obj.previewUrl}`)
+                                  .then(() => showToast("URL copied to clipboard!"))
+                                  .catch(() => showToast("Failed to copy URL.", true));
                               }}
                             >
                               Copy URL
@@ -438,6 +673,216 @@ export function AssetTable({
           </TableBody>
         </Table>
       </div>
+      ) : (
+        /* Grid view */
+        <div>
+          {isLoading ? (
+            <div className="flex h-32 items-center justify-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <span className="ml-2">Loading assets...</span>
+            </div>
+          ) : visibleObjects.length === 0 ? (
+            <div className="flex h-32 items-center justify-center">
+              <p className="text-muted-foreground">
+                {searchQuery.trim()
+                  ? `No files matching "${searchQuery.trim()}"`
+                  : "No objects found in this location"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {visibleObjects.map((obj) => {
+                const displayName = getDisplayName(obj.key, currentPrefix);
+                const isRenaming = renamingKey === obj.key;
+                return (
+                  <div
+                    key={obj.key}
+                    className="group relative flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      if (isNestedInteractiveElement(e.target)) return;
+                      handleGridCardOpen(obj);
+                    }}
+                     onKeyDown={(e) => {
+                       if (e.key === "Enter" || e.key === " ") {
+                         e.preventDefault();
+                         handleGridCardOpen(obj);
+                       }
+                     }}
+                  >
+                    {/* Preview / icon */}
+                    <div className="flex h-[160px] items-center justify-center overflow-hidden rounded-md bg-muted">
+                      {obj.isFolder ? (
+                        <Folder className="h-12 w-12 text-amber-500" />
+                      ) : obj.previewUrl ? (
+                        <img
+                          src={obj.previewUrl}
+                          alt={displayName}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <File className="h-10 w-10 text-muted-foreground" />
+                      )}
+                    </div>
+
+                    {/* Name */}
+                    {isRenaming ? (
+                      <div className="flex flex-col gap-1">
+                        <Input
+                          ref={renameInputRef}
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRenameConfirm(obj);
+                            if (e.key === "Escape") handleRenameCancel();
+                          }}
+                          className="h-7 text-xs"
+                          disabled={isSubmittingRename}
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-green-600"
+                            onClick={() => handleRenameConfirm(obj)}
+                            disabled={isSubmittingRename}
+                            title="Confirm"
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={handleRenameCancel}
+                            disabled={isSubmittingRename}
+                            title="Cancel"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="truncate text-sm font-medium" title={displayName}>
+                          {displayName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatFileSize(obj.size)}
+                          {obj.lastModified && (
+                            <> · {formatDate(obj.lastModified)}</>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Copy URL for images */}
+                    {obj.previewUrl && !isRenaming && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        className="h-6 w-full text-[11px]"
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(obj.previewUrl!)
+                            .then(() => showToast("URL copied to clipboard!"))
+                            .catch(() => showToast("Failed to copy URL.", true));
+                        }}
+                      >
+                        Copy URL
+                      </Button>
+                    )}
+
+                    {/* Action buttons — visible on hover */}
+                    {!isRenaming && (
+                      <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        {!obj.isFolder && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => onDownload(obj.key)}
+                            title="Download"
+                            disabled={renamingKey !== null}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            <span className="sr-only">Download</span>
+                          </Button>
+                        )}
+                        {onRename && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleRenameStart(obj)}
+                            title="Rename"
+                            disabled={renamingKey !== null}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            <span className="sr-only">Rename</span>
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => onDelete(obj.key)}
+                          title="Delete"
+                          disabled={renamingKey !== null}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Dialog
+        open={previewImage !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewImage(null);
+        }}
+      >
+        <DialogContent className="max-w-4xl p-4">
+          <DialogTitle className="text-sm sm:text-base">
+            {previewImage?.name || "Image preview"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Large preview for selected image asset
+          </DialogDescription>
+
+          {previewImage && (
+            <div className="max-h-[70vh] overflow-auto rounded-md border bg-muted">
+              <img
+                src={previewImage.url}
+                alt={previewImage.name}
+                className="h-auto w-full object-contain"
+              />
+            </div>
+          )}
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Close
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Pagination controls */}
       <div className="flex items-center justify-between">
