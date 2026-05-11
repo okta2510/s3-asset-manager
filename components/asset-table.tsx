@@ -33,6 +33,7 @@ import {
 type SortField = "name" | "size" | "lastModified" | "type";
 type SortDir = "asc" | "desc";
 type ViewMode = "list" | "grid";
+type SortOption = "name-asc" | "name-desc" | "size" | "type";
 
 /**
  * Props for the AssetTable component
@@ -128,6 +129,16 @@ export function AssetTable({
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const sortOption: SortOption =
+    sortField === "name"
+      ? sortDir === "asc"
+        ? "name-asc"
+        : "name-desc"
+      : sortField === "size"
+      ? "size"
+      : sortField === "type"
+      ? "type"
+      : "name-asc";
 
   const filteredObjects = searchQuery.trim()
     ? objects.filter((obj) =>
@@ -180,6 +191,43 @@ export function AssetTable({
     return sortDir === "asc"
       ? <ArrowUp className="ml-1 h-3 w-3 inline" />
       : <ArrowDown className="ml-1 h-3 w-3 inline" />;
+  };
+
+  const handleSortOptionChange = (option: SortOption) => {
+    if (option === "name-asc") {
+      setSortField("name");
+      setSortDir("asc");
+      return;
+    }
+    if (option === "name-desc") {
+      setSortField("name");
+      setSortDir("desc");
+      return;
+    }
+    if (option === "size") {
+      setSortField("size");
+      setSortDir("asc");
+      return;
+    }
+    setSortField("type");
+    setSortDir("asc");
+  };
+
+  const isInteractiveGridTarget = (target: EventTarget | null) =>
+    target instanceof Element &&
+    !!target.closest("button, a, input, select, textarea, label");
+
+  const handleGridCardOpen = (obj: (typeof objects)[number]) => {
+    if (renamingKey !== null) return;
+    if (obj.isFolder) {
+      onNavigate(obj.key);
+      return;
+    }
+    if (obj.previewUrl) {
+      window.open(obj.previewUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    onDownload(obj.key);
   };
 
   const handleRenameStart = (obj: (typeof objects)[number]) => {
@@ -263,8 +311,20 @@ export function AssetTable({
           )}
         </div>
 
+        <select
+          value={sortOption}
+          onChange={(e) => handleSortOptionChange(e.target.value as SortOption)}
+          className="h-9 rounded-md border bg-background px-2 text-sm"
+          aria-label="Sort assets"
+        >
+          <option value="name-asc">Name (A-Z)</option>
+          <option value="name-desc">Name (Z-A)</option>
+          <option value="size">Size</option>
+          <option value="type">File type</option>
+        </select>
+
         {/* View mode toggle */}
-        <div className="flex items-center rounded-md border">
+        <div className="flex items-center rounded-md border shrink-0">
           <Button
             type="button"
             variant={viewMode === "list" ? "default" : "ghost"}
@@ -582,7 +642,19 @@ export function AssetTable({
                 return (
                   <div
                     key={obj.key}
-                    className="group relative flex flex-col gap-2 rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                    className="group relative flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      if (isInteractiveGridTarget(e.target)) return;
+                      handleGridCardOpen(obj);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleGridCardOpen(obj);
+                      }
+                    }}
                   >
                     {/* Preview / icon */}
                     <div className="flex h-24 items-center justify-center overflow-hidden rounded-md bg-muted">
