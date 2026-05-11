@@ -4,6 +4,14 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -129,6 +137,9 @@ export function AssetTable({
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(
+    null
+  );
   const sortOption: SortOption = (() => {
     if (sortField === "name") return sortDir === "asc" ? "name-asc" : "name-desc";
     if (sortField === "size") return "size";
@@ -242,7 +253,10 @@ export function AssetTable({
       return;
     }
     if (obj.previewUrl) {
-      window.open(obj.previewUrl, "_blank", "noopener,noreferrer");
+      setPreviewImage({
+        url: obj.previewUrl,
+        name: getDisplayName(obj.key, currentPrefix),
+      });
       return;
     }
     onDownload(obj.key);
@@ -807,6 +821,35 @@ export function AssetTable({
           )}
         </div>
       )}
+
+      <Dialog open={previewImage !== null} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-4xl p-4">
+          <DialogTitle className="text-sm sm:text-base">
+            {previewImage?.name || "Image preview"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Large preview for selected image asset
+          </DialogDescription>
+
+          {previewImage && (
+            <div className="max-h-[70vh] overflow-auto rounded-md border bg-muted">
+              <img
+                src={previewImage.url}
+                alt={previewImage.name}
+                className="h-auto w-full object-contain"
+              />
+            </div>
+          )}
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Close
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Pagination controls */}
       <div className="flex items-center justify-between">
