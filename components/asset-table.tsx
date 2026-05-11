@@ -183,7 +183,7 @@ export function AssetTable({
     return sortDir === "asc" ? cmp : -cmp;
   });
 
-  const hasRenderableMetadata = (obj: (typeof objects)[number]) => {
+  const hasAnyDisplayMetadata = (obj: (typeof objects)[number]) => {
     const lastModifiedTime = obj.lastModified
       ? new Date(obj.lastModified).getTime()
       : Number.NaN;
@@ -198,7 +198,7 @@ export function AssetTable({
   };
 
   const visibleObjects = sortedObjects.filter(
-    (obj) => obj.isFolder || hasRenderableMetadata(obj)
+    (obj) => obj.isFolder || hasAnyDisplayMetadata(obj)
   );
 
   /** Toggles sort: if already on this field, flip direction; otherwise set field + asc */
