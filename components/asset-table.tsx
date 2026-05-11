@@ -676,12 +676,12 @@ export function AssetTable({
                       if (isNestedInteractiveElement(e.target)) return;
                       handleGridCardOpen(obj);
                     }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-                        e.preventDefault();
-                        handleGridCardOpen(obj);
-                      }
-                    }}
+                     onKeyDown={(e) => {
+                       if (e.key === "Enter" || e.key === " ") {
+                         e.preventDefault();
+                         handleGridCardOpen(obj);
+                       }
+                     }}
                   >
                     {/* Preview / icon */}
                     <div className="flex h-24 items-center justify-center overflow-hidden rounded-md bg-muted">
@@ -822,7 +822,12 @@ export function AssetTable({
         </div>
       )}
 
-      <Dialog open={previewImage !== null} onOpenChange={(open) => !open && setPreviewImage(null)}>
+      <Dialog
+        open={previewImage !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewImage(null);
+        }}
+      >
         <DialogContent className="max-w-4xl p-4">
           <DialogTitle className="text-sm sm:text-base">
             {previewImage?.name || "Image preview"}
