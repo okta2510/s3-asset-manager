@@ -33,6 +33,7 @@ import {
 type SortField = "name" | "size" | "lastModified" | "type";
 type SortDir = "asc" | "desc";
 type ViewMode = "list" | "grid";
+type SortOption = "name-asc" | "name-desc" | "size" | "type" | "last-modified";
 
 /**
  * Props for the AssetTable component
@@ -128,6 +129,13 @@ export function AssetTable({
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const sortOption: SortOption = (() => {
+    if (sortField === "name") return sortDir === "asc" ? "name-asc" : "name-desc";
+    if (sortField === "size") return "size";
+    if (sortField === "type") return "type";
+    if (sortField === "lastModified") return "last-modified";
+    return "name-asc";
+  })();
 
   const filteredObjects = searchQuery.trim()
     ? objects.filter((obj) =>
@@ -180,6 +188,64 @@ export function AssetTable({
     return sortDir === "asc"
       ? <ArrowUp className="ml-1 h-3 w-3 inline" />
       : <ArrowDown className="ml-1 h-3 w-3 inline" />;
+  };
+
+  const handleSortOptionChange = (option: SortOption) => {
+    if (option === "name-asc") {
+      setSortField("name");
+      setSortDir("asc");
+      return;
+    }
+    if (option === "name-desc") {
+      setSortField("name");
+      setSortDir("desc");
+      return;
+    }
+    if (option === "size") {
+      setSortField("size");
+      setSortDir("asc");
+      return;
+    }
+    if (option === "type") {
+      setSortField("type");
+      setSortDir("asc");
+      return;
+    }
+    setSortField("lastModified");
+    setSortDir("asc");
+  };
+
+  const isNestedInteractiveElement = (target: EventTarget | null) =>
+    target instanceof Element &&
+    !!target.closest("button, a, input, select, textarea, label");
+
+  const showToast = (message: string, isError = false) => {
+    const toast = document.createElement("div");
+    const baseClass =
+      "fixed bottom-4 right-4 z-50 rounded-md border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
+    const variantClass = isError
+      ? "bg-destructive text-destructive-foreground"
+      : "bg-background";
+    toast.className = `${baseClass} ${variantClass}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
+      toast.addEventListener("animationend", () => toast.remove());
+    }, 2000);
+  };
+
+  const handleGridCardOpen = (obj: (typeof objects)[number]) => {
+    if (renamingKey !== null) return;
+    if (obj.isFolder) {
+      onNavigate(obj.key);
+      return;
+    }
+    if (obj.previewUrl) {
+      window.open(obj.previewUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    onDownload(obj.key);
   };
 
   const handleRenameStart = (obj: (typeof objects)[number]) => {
@@ -263,8 +329,21 @@ export function AssetTable({
           )}
         </div>
 
+        <select
+          value={sortOption}
+          onChange={(e) => handleSortOptionChange(e.target.value as SortOption)}
+          className="h-9 rounded-md border bg-background px-2 text-sm"
+          aria-label="Sort assets"
+        >
+          <option value="name-asc">Name (A-Z)</option>
+          <option value="name-desc">Name (Z-A)</option>
+          <option value="size">Size</option>
+          <option value="type">File type</option>
+          <option value="last-modified">Last modified</option>
+        </select>
+
         {/* View mode toggle */}
-        <div className="flex items-center rounded-md border">
+        <div className="flex items-center rounded-md border shrink-0">
           <Button
             type="button"
             variant={viewMode === "list" ? "default" : "ghost"}
@@ -472,16 +551,10 @@ export function AssetTable({
                               size="xs"
                               className="h-7 px-2 cursor-pointer text-[12px]"
                               onClick={() => {
-                              navigator.clipboard.writeText(`${obj.previewUrl}`);
-                              const toast = document.createElement("div");
-                              toast.className =
-                                "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
-                              toast.textContent = "URL copied to clipboard!";
-                              document.body.appendChild(toast);
-                              setTimeout(() => {
-                                toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
-                                toast.addEventListener("animationend", () => toast.remove());
-                              }, 2000);
+                                navigator.clipboard
+                                  .writeText(`${obj.previewUrl}`)
+                                  .then(() => showToast("URL copied to clipboard!"))
+                                  .catch(() => showToast("Failed to copy URL.", true));
                               }}
                             >
                               Copy URL
@@ -582,23 +655,33 @@ export function AssetTable({
                 return (
                   <div
                     key={obj.key}
-                    className="group relative flex flex-col gap-2 rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                    className="group relative flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      if (isNestedInteractiveElement(e.target)) return;
+                      handleGridCardOpen(obj);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+                        e.preventDefault();
+                        handleGridCardOpen(obj);
+                      }
+                    }}
                   >
                     {/* Preview / icon */}
                     <div className="flex h-24 items-center justify-center overflow-hidden rounded-md bg-muted">
                       {obj.isFolder ? (
                         <Folder className="h-12 w-12 text-amber-500" />
                       ) : obj.previewUrl ? (
-                        <a href={obj.previewUrl} target="_blank" rel="noreferrer" className="h-full w-full">
-                          <img
-                            src={obj.previewUrl}
-                            alt={displayName}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = "none";
-                            }}
-                          />
-                        </a>
+                        <img
+                          src={obj.previewUrl}
+                          alt={displayName}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
                       ) : (
                         <File className="h-10 w-10 text-muted-foreground" />
                       )}
@@ -645,20 +728,9 @@ export function AssetTable({
                       </div>
                     ) : (
                       <div>
-                        {obj.isFolder ? (
-                          <button
-                            type="button"
-                            onClick={() => handleFolderClick(obj.key)}
-                            className="w-full truncate text-left text-sm font-medium hover:text-primary hover:underline"
-                            title={displayName}
-                          >
-                            {displayName}
-                          </button>
-                        ) : (
-                          <p className="truncate text-sm font-medium" title={displayName}>
-                            {displayName}
-                          </p>
-                        )}
+                        <p className="truncate text-sm font-medium" title={displayName}>
+                          {displayName}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {formatFileSize(obj.size)}
                           {obj.lastModified && (
@@ -674,29 +746,12 @@ export function AssetTable({
                         type="button"
                         variant="outline"
                         size="xs"
-                        className="h-6 w-full cursor-pointer text-[11px]"
+                        className="h-6 w-full text-[11px]"
                         onClick={() => {
-                          navigator.clipboard.writeText(obj.previewUrl!).then(() => {
-                            const toast = document.createElement("div");
-                            toast.className =
-                              "fixed bottom-4 right-4 z-50 rounded-md bg-background border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
-                            toast.textContent = "URL copied to clipboard!";
-                            document.body.appendChild(toast);
-                            setTimeout(() => {
-                              toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
-                              toast.addEventListener("animationend", () => toast.remove());
-                            }, 2000);
-                          }).catch(() => {
-                            const toast = document.createElement("div");
-                            toast.className =
-                              "fixed bottom-4 right-4 z-50 rounded-md bg-destructive text-destructive-foreground border shadow-lg px-4 py-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-2";
-                            toast.textContent = "Failed to copy URL.";
-                            document.body.appendChild(toast);
-                            setTimeout(() => {
-                              toast.classList.add("animate-out", "fade-out", "slide-out-to-bottom-2");
-                              toast.addEventListener("animationend", () => toast.remove());
-                            }, 2000);
-                          });
+                          navigator.clipboard
+                            .writeText(obj.previewUrl!)
+                            .then(() => showToast("URL copied to clipboard!"))
+                            .catch(() => showToast("Failed to copy URL.", true));
                         }}
                       >
                         Copy URL
@@ -710,7 +765,7 @@ export function AssetTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 cursor-pointer"
+                            className="h-7 w-7"
                             onClick={() => onDownload(obj.key)}
                             title="Download"
                             disabled={renamingKey !== null}
@@ -723,7 +778,7 @@ export function AssetTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 cursor-pointer"
+                            className="h-7 w-7"
                             onClick={() => handleRenameStart(obj)}
                             title="Rename"
                             disabled={renamingKey !== null}
@@ -735,7 +790,7 @@ export function AssetTable({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 cursor-pointer text-destructive hover:text-destructive"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
                           onClick={() => onDelete(obj.key)}
                           title="Delete"
                           disabled={renamingKey !== null}
