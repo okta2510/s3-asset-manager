@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, X } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 /**
  * Props for the UploadDialog component
@@ -27,6 +28,8 @@ interface UploadDialogProps {
   onUpload: (uploads: { file: File; key: string }[]) => Promise<void>;
   /** Whether upload is in progress */
   isUploading?: boolean;
+  /** Upload progress percentage (0-100). Pass null/undefined when not uploading. */
+  uploadProgress?: number | null;
 }
 
 /**
@@ -38,6 +41,7 @@ export function UploadDialog({
   currentPrefix,
   onUpload,
   isUploading = false,
+  uploadProgress,
 }: UploadDialogProps) {
   // Dialog open state
   const [open, setOpen] = useState(false);
@@ -190,7 +194,7 @@ export function UploadDialog({
               >
                 <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Click to select one or more files
+                  Click to select one or more files, including videos
                 </p>
               </div>
             )}
@@ -198,6 +202,7 @@ export function UploadDialog({
               ref={fileInputRef}
               id="file"
               type="file"
+              accept="image/*,video/*"
               multiple={true}
               onChange={handleFileChange}
               className="hidden"
@@ -216,7 +221,7 @@ export function UploadDialog({
                 disabled={selectedFiles.length === 0}
               />
               <p className="text-xs text-muted-foreground">
-                The name the file will have in S3. You can include folders using slashes (e.g., images/photo.jpg)
+                The name the file will have in S3. You can include folders using slashes (e.g., images/photo.jpg or videos/movie.mp4)
               </p>
             </div>
           )}
@@ -229,6 +234,17 @@ export function UploadDialog({
 
           {/* Error display */}
           {error && <p className="text-sm text-destructive">{error}</p>}
+
+          {/* Upload progress bar */}
+          {/* {uploadProgress != null && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Uploading...</span>
+                <span className="text-sm font-medium">{Math.round(uploadProgress)}%</span>
+              </div>
+              <Progress value={uploadProgress} />
+            </div>
+          )} */}
         </div>
 
         <DialogFooter>

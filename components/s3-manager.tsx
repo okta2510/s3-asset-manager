@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CredentialsForm } from "@/components/credentials-form";
@@ -46,11 +46,13 @@ export function S3Manager() {
 
   // CRUD operation states
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const completedRef = useRef(0);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreatingBucket, setIsCreatingBucket] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [perPage, setPerPage] = useState(50);
+  const [perPage, setPerPage] = useState(10);
 
   /**
    * Loads saved credentials from localStorage on component mount
@@ -67,10 +69,6 @@ export function S3Manager() {
     }
     setMounted(true)
   }, []);
-
-  useEffect(() => {
-    fetchObjects(currentPrefix, continuationToken, true);
-  }, [perPage]);
 
   /**
    * Builds query string with credentials for API calls
@@ -187,6 +185,7 @@ export function S3Manager() {
             data.objects.map(async (obj: any) => {
               if (!obj.isFolder) {
                 const ext = obj.key.split('.').pop()?.toLowerCase();
+                const previewUrl = `https://nos.jkt-1.neo.id/${selectedBucket}/${encodeURIComponent(obj.key)}`;
                 if (imageExtensions.includes(ext)) {
                   try {
                     const imgUrl = await getPresignedUrl(
@@ -195,15 +194,15 @@ export function S3Manager() {
                       selectedBucket,
                       buildCredentialParams
                     );
-                    const previewUrl = `https://nos.jkt-1.neo.id/${selectedBucket}/${encodeURIComponent(obj.key)}`;
                     return { ...obj, previewUrl, imgUrl };
                   } catch (err) {
                     console.warn(`Failed to generate preview for ${obj.key}:`, err);
-                    return { ...obj, previewUrl: null };
+                    return { ...obj, previewUrl };
                   }
                 }
+                return { ...obj, previewUrl };
               }
-              return { ...obj, previewUrl: null }; // non-image or folder
+              return { ...obj, previewUrl: null }; // folder
             })
           );
           setObjects(enrichedObjects);
@@ -222,7 +221,20 @@ export function S3Manager() {
         setObjectsLoading(false);
       }
     },
-    [credentials, selectedBucket, buildCredentialParams]
+    [credentials, selectedBucket, buildCredentialParams, perPage]
+  );
+
+  const handlePerPageChange = useCallback(
+    (newPerPage: number) => {
+      if (newPerPage === perPage) return;
+
+      setPerPage(newPerPage);
+      setCurrentPage(1);
+      setPageHistory([]);
+      setContinuationToken(undefined);
+      void fetchObjects(currentPrefix, undefined, false);
+    },
+    [currentPrefix, fetchObjects, perPage]
   );
 
   /**
@@ -333,29 +345,35 @@ export function S3Manager() {
   const handleUpload = async (uploads: { file: File; key: string }[]) => {
     if (!credentials || !selectedBucket) return;
     setIsUploading(true);
+    setUploadProgress(0);
+    completedRef.current = 0;
+    const total = uploads.length;
     try {
-      const results = await Promise.allSettled(
-        uploads.map(async ({ file, key }) => {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("key", key);
-          formData.append("bucket", selectedBucket);
-          formData.append("endpoint", credentials.endpoint);
-          formData.append("region", credentials.region);
-          formData.append("accessKeyId", credentials.accessKeyId);
-          formData.append("secretAccessKey", credentials.secretAccessKey);
+      const uploadPromises = uploads.map(async ({ file, key }) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("key", key);
+        formData.append("bucket", selectedBucket);
+        formData.append("endpoint", credentials.endpoint);
+        formData.append("region", credentials.region);
+        formData.append("accessKeyId", credentials.accessKeyId);
+        formData.append("secretAccessKey", credentials.secretAccessKey);
 
-          const response = await fetch("/api/s3/objects", {
-            method: "POST",
-            body: formData,
-          });
+        const response = await fetch("/api/s3/objects", {
+          method: "POST",
+          body: formData,
+        });
 
-          if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data.error || `Upload failed for ${key}`);
-          }
-        })
-      );
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || `Upload failed for ${key}`);
+        }
+
+        completedRef.current += 1;
+        setUploadProgress(Math.min(Math.round((completedRef.current / total) * 100), 100));
+      });
+
+      const results = await Promise.allSettled(uploadPromises);
 
       const failedUploads = results
         .filter((result): result is PromiseRejectedResult => result.status === "rejected")
@@ -375,6 +393,7 @@ export function S3Manager() {
       await fetchObjects(currentPrefix);
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -700,6 +719,7 @@ export function S3Manager() {
                       currentPrefix={currentPrefix}
                       onUpload={handleUpload}
                       isUploading={isUploading}
+                      uploadProgress={uploadProgress}
                     />
                   </div>
                 </div>
@@ -722,7 +742,7 @@ export function S3Manager() {
                     canGoPrevious: currentPage > 1,
                     currentPage,
                     perPage,
-                    onPerPage:setPerPage
+                    onPerPage: handlePerPageChange
                   }}
                 />
               </CardContent>
