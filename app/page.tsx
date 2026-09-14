@@ -6,5 +6,5 @@ import { S3Manager } from "@/components/s3-manager";
  * Renders the main S3Manager component which handles all functionality
  */
 export default function Home() {
-  return <S3Manager />;
+  return <S3Manager />; 
 }
