@@ -40,6 +40,39 @@ After connecting:
 ![Bucket Selection UI]
 
 
+## 🏷️ Rebranding Checklist
+
+When changing the brand name, update these files:
+
+### Brand Name / Title
+| File | Line | Current Value |
+|------|------|---------------|
+| `app/layout.tsx` | 11 | `title: 'S3 Asset Manager'` |
+| `app/layout.tsx` | 12 | `description: 'Manage your S3 assets...'` |
+| `app/layout.tsx` | 13 | `generator: 'oktaviardi.com'` |
+| `app/layout.tsx` | 15-30 | Icon paths (`/icon-light-32x32.png`, etc.) |
+| `app/page.tsx` | 5 | Comment line `S3 Asset Manager application` |
+| `components/s3-manager.tsx` | 607 | `<h1>S3 Asset Manager</h1>` |
+| `package.json` | 2 | `"name": "oktaviardi.com-project"` |
+| `README.md` | 1 | Heading `S3 Asset Manager` |
+| `README.md` | 6 | Preview URL `s3.yanginibeda.com` |
+
+### Brand-specific URLs & Endpoints
+| File | Line | Value |
+|------|------|-------|
+| `components/s3-manager.tsx` | 188 | Public URL base `https://nos.jkt-1.neo.id/` |
+
+### Google Analytics
+No Google Analytics code detected in the codebase. If you need to add it, insert the gtag snippet in `app/layout.tsx`.
+
+### Search Console
+No Search Console verification tag detected. If needed, add `<meta name="google-site-verification" content="...">` in the `<head>` of `app/layout.tsx`.
+
+### Google Sheets / AppScript
+No Google Sheets IDs or AppScript references detected in the codebase.
+
+---
+
 ## 🚀 Branching Rule
 
 ### 1. Branch Naming

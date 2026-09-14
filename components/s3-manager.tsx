@@ -170,7 +170,6 @@ export function S3Manager() {
           bucket: selectedBucket,
           prefix,
           maxKeys: perPage.toString(),
-          Key: 'image.jpg'
         });
         if (token) {
           params.set("continuationToken", token);

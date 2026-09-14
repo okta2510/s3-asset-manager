@@ -281,9 +281,9 @@ export function AssetTable({
       onNavigate(obj.key);
       return;
     }
-    if (obj.previewUrl) {
+    if (obj.imgUrl || obj.previewUrl) {
       setPreviewImage({
-        url: obj.previewUrl,
+        url: obj.imgUrl || obj.previewUrl!,
         name: getDisplayName(obj.key, currentPrefix),
       });
       return;
@@ -565,7 +565,7 @@ export function AssetTable({
                     ) : (
                       <div>
                         {(() => {
-                          const isPreviewable = obj.previewUrl != null && isImageExtension(obj.key);
+                          const isPreviewable = (obj.imgUrl || obj.previewUrl) != null && isImageExtension(obj.key);
                           return (
                             <>
                               {isPreviewable && (
@@ -574,14 +574,14 @@ export function AssetTable({
                                   className="cursor-pointer"
                                   onClick={() =>
                                     setPreviewImage({
-                                      url: obj.previewUrl!,
+                                      url: obj.imgUrl || obj.previewUrl!,
                                       name: getDisplayName(obj.key, currentPrefix),
                                     })
                                   }
                                   title="Open large image preview"
                                 >
                                   <img
-                                    src={obj.previewUrl!}
+                                    src={obj.imgUrl || obj.previewUrl!}
                                     alt={obj.key}
                                     style={{ width: 100, height: 100, objectFit: "cover" }}
                                     onError={(e) => {
@@ -735,9 +735,9 @@ export function AssetTable({
                     <div className="flex h-[160px] items-center justify-center overflow-hidden rounded-md bg-muted">
                       {obj.isFolder ? (
                         <Folder className="h-12 w-12 text-amber-500" />
-                      ) : obj.previewUrl && isImageExtension(obj.key) ? (
+                      ) : (obj.imgUrl || obj.previewUrl) && isImageExtension(obj.key) ? (
                         <img
-                          src={obj.previewUrl}
+                          src={obj.imgUrl || obj.previewUrl}
                           alt={displayName}
                           className="h-full w-full object-cover"
                           onError={(e) => {

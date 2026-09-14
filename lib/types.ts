@@ -31,6 +31,7 @@ export interface S3Object {
   /** Storage class of the object (STANDARD, GLACIER, etc.) */
   storageClass?: string;
   previewUrl?: string
+  imgUrl?: string
 }
 
 /**
