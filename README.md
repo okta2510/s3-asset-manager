@@ -9,7 +9,7 @@ A secure, browser-based file manager for S3-compatible object storage (e.g., AWS
 
 - ✅ Connect to any S3-compatible endpoin t (AWS, NEO, MinIO, etc.)
 - 🗂️ Browse buckets & folders (prefix-based navigation)
-- 🖼️ Preview images via **pre-signed URLs** (secure, no public bucket required)
+- 🖼️ Preview images via **permanent public URLs** (public-read ACL, no expiration)
 - 📤 Upload single or multiple files (multipart form data)
 - 🗑️ Delete objects
 - 🔐 Credentials never exposed client-side — all sensitive operations handled server-side
@@ -60,7 +60,7 @@ When changing the brand name, update these files:
 ### Brand-specific URLs & Endpoints
 | File | Line | Value |
 |------|------|-------|
-| `components/s3-manager.tsx` | 188 | Public URL base `https://nos.jkt-1.neo.id/` |
+| `components/s3-manager.tsx` | 130 | Public URL base `https://nos.jkt-1.neo.id/` (via `getPublicUrl()`) |
 
 ### Google Analytics
 No Google Analytics code detected in the codebase. If you need to add it, insert the gtag snippet in `app/layout.tsx`.

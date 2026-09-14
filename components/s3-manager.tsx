@@ -127,24 +127,8 @@ export function S3Manager() {
   }, [credentials, buildCredentialParams]);
 
 
-  const getPresignedUrl = async (
-    key: string,
-    credentials: any,
-    bucket: string,
-    buildCredentialParams: () => string
-  ): Promise<string> => {
-    const params = new URLSearchParams({
-      ...Object.fromEntries(new URLSearchParams(buildCredentialParams())),
-      bucket,
-      key,
-    });
-
-    const response = await fetch(`/api/s3/presigned-url?${params.toString()}`);
-    if (!response.ok) {
-      throw new Error('Failed to generate pre-signed URL');
-    }
-    const data = await response.json();
-    return data.url;
+  const getPublicUrl = (bucket: string, key: string): string => {
+    return `https://nos.jkt-1.neo.id/${bucket}/${encodeURIComponent(key)}`;
   };
 
   /**
@@ -179,26 +163,13 @@ export function S3Manager() {
         const data = await response.json();
         
         if (data.objects) {
-          const enrichedObjects = await Promise.all(
-            data.objects.map(async (obj: any) => {
-              if (!obj.isFolder) {
-                const previewUrl = `https://nos.jkt-1.neo.id/${selectedBucket}/${encodeURIComponent(obj.key)}`;
-                try {
-                  const imgUrl = await getPresignedUrl(
-                    obj.key,
-                    credentials,
-                    selectedBucket,
-                    buildCredentialParams
-                  );
-                  return { ...obj, previewUrl, imgUrl };
-                } catch (err) {
-                  console.warn(`Failed to generate preview for ${obj.key}:`, err);
-                  return { ...obj, previewUrl };
-                }
-              }
-              return { ...obj, previewUrl: null }; // folder
-            })
-          );
+          const enrichedObjects = data.objects.map((obj: any) => {
+            if (!obj.isFolder) {
+              const previewUrl = getPublicUrl(selectedBucket, obj.key);
+              return { ...obj, previewUrl, imgUrl: previewUrl };
+            }
+            return { ...obj, previewUrl: null, imgUrl: null };
+          });
           setObjects(enrichedObjects);
           // setObjects(data.objects);
           setContinuationToken(data.nextContinuationToken);
@@ -496,30 +467,13 @@ export function S3Manager() {
   };
 
   /**
-   * Handles file download by generating pre-signed URL
+   * Handles file download by opening the public URL
    * @param key - Key of object to download
    */
   const handleDownload = async (key: string) => {
     if (!credentials || !selectedBucket) return;
-    try {
-      const response = await fetch("/api/s3/objects", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...credentials,
-          bucket: selectedBucket,
-          key,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.url) {
-        // Open pre-signed URL in new tab
-        window.open(data.url, "_blank");
-      }
-    } catch (error) {
-      console.error("Failed to generate download URL:", error);
-    }
+    const url = getPublicUrl(selectedBucket, key);
+    window.open(url, "_blank");
   };
 
   const handlePreview = async (key: string) => {
@@ -527,12 +481,7 @@ export function S3Manager() {
       throw new Error("Missing credentials or bucket");
     }
 
-    return getPresignedUrl(
-      key,
-      credentials,
-      selectedBucket,
-      buildCredentialParams
-    );
+    return getPublicUrl(selectedBucket, key);
   };
 
   /**
