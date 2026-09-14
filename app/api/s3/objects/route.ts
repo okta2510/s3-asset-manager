@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
+import { validateUploadFile } from "@/lib/upload-rules";
 
 /**
  * Creates an S3 client instance with the provided credentials
@@ -156,6 +157,19 @@ export async function POST(request: Request) {
       );
     }
 
+    const validation = validateUploadFile({
+      name: file.name || key,
+      type: file.type,
+      size: file.size,
+    });
+
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      );
+    }
+
     const client = createS3Client({
       endpoint,
       region,
@@ -178,7 +192,7 @@ export async function POST(request: Request) {
       Bucket: bucket,
       Key: key,
       Body: buffer,
-      ContentType: file.type || "application/octet-stream",
+      ContentType: validation.mimeType,
       ACL: 'public-read' // 👈 THIS MAKES IT PUBLIC
     });
 

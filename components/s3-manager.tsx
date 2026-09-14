@@ -179,27 +179,22 @@ export function S3Manager() {
         const data = await response.json();
         
         if (data.objects) {
-          const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
           const enrichedObjects = await Promise.all(
             data.objects.map(async (obj: any) => {
               if (!obj.isFolder) {
-                const ext = obj.key.split('.').pop()?.toLowerCase();
                 const previewUrl = `https://nos.jkt-1.neo.id/${selectedBucket}/${encodeURIComponent(obj.key)}`;
-                if (imageExtensions.includes(ext)) {
-                  try {
-                    const imgUrl = await getPresignedUrl(
-                      obj.key,
-                      credentials,
-                      selectedBucket,
-                      buildCredentialParams
-                    );
-                    return { ...obj, previewUrl, imgUrl };
-                  } catch (err) {
-                    console.warn(`Failed to generate preview for ${obj.key}:`, err);
-                    return { ...obj, previewUrl };
-                  }
+                try {
+                  const imgUrl = await getPresignedUrl(
+                    obj.key,
+                    credentials,
+                    selectedBucket,
+                    buildCredentialParams
+                  );
+                  return { ...obj, previewUrl, imgUrl };
+                } catch (err) {
+                  console.warn(`Failed to generate preview for ${obj.key}:`, err);
+                  return { ...obj, previewUrl };
                 }
-                return { ...obj, previewUrl };
               }
               return { ...obj, previewUrl: null }; // folder
             })
@@ -527,6 +522,19 @@ export function S3Manager() {
     }
   };
 
+  const handlePreview = async (key: string) => {
+    if (!credentials || !selectedBucket) {
+      throw new Error("Missing credentials or bucket");
+    }
+
+    return getPresignedUrl(
+      key,
+      credentials,
+      selectedBucket,
+      buildCredentialParams
+    );
+  };
+
   /**
    * Handles new bucket creation
    * @param bucketName - Name for new bucket
@@ -730,6 +738,7 @@ export function S3Manager() {
                   onNavigate={handleNavigate}
                   onDelete={(key) => setDeleteTarget(key)}
                   onDownload={handleDownload}
+                  onPreview={handlePreview}
                   onRename={handleRename}
                   onSortChange={handleSortChange}
                   isLoading={isObjectsLoading}

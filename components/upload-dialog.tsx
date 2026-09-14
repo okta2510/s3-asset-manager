@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { UPLOAD_ACCEPT, validateUploadFile } from "@/lib/upload-rules";
 
 /**
  * Props for the UploadDialog component
@@ -62,6 +63,20 @@ export function UploadDialog({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
+      const invalidFile = files
+        .map(validateUploadFile)
+        .find((result) => !result.valid);
+
+      if (invalidFile?.error) {
+        setSelectedFiles([]);
+        setCustomKey("");
+        setError(invalidFile.error);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+
       setSelectedFiles(files);
       // Preserve custom naming only for single-file uploads.
       setCustomKey(files.length === 1 ? files[0].name : "");
@@ -194,7 +209,7 @@ export function UploadDialog({
               >
                 <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Click to select one or more files, including videos
+                  Click to select PDF, MP3, or MP4 files
                 </p>
               </div>
             )}
@@ -202,7 +217,7 @@ export function UploadDialog({
               ref={fileInputRef}
               id="file"
               type="file"
-              accept="image/*,video/*"
+              accept={UPLOAD_ACCEPT}
               multiple={true}
               onChange={handleFileChange}
               className="hidden"

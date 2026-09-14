@@ -24,8 +24,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
   Folder,
   File,
+  FileText,
+  Music2,
+  Video,
   Trash2,
   Pencil,
   Check,
@@ -42,6 +46,7 @@ type SortField = "name" | "size" | "lastModified" | "type";
 type SortDir = "asc" | "desc";
 type ViewMode = "list" | "grid";
 type SortOption = "name-asc" | "name-desc" | "size" | "type" | "last-modified";
+type PreviewKind = "image" | "pdf" | "video" | "audio";
 
 /**
  * Props for the AssetTable component
@@ -57,6 +62,8 @@ interface AssetTableProps {
   onDelete: (key: string) => void;
   /** Callback when user requests to download an object */
   onDownload: (key: string) => void;
+  /** Callback when user requests to preview an object */
+  onPreview: (key: string) => Promise<string>;
   /** Callback when user renames an object */
   onRename?: (oldKey: string, newKey: string) => Promise<void>;
   /** Callback when user changes sort field/direction */
@@ -121,6 +128,38 @@ function isImageExtension(key: string): boolean {
   return ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(ext || "");
 }
 
+function isVideoExtension(key: string): boolean {
+  const ext = key.split(".").pop()?.toLowerCase();
+  return ["mp4", "webm", "ogg", "m4v", "mov"].includes(ext || "");
+}
+
+function isAudioExtension(key: string): boolean {
+  const ext = key.split(".").pop()?.toLowerCase();
+  return ["mp3", "wav", "ogg", "aac", "flac", "m4a"].includes(ext || "");
+}
+
+function isPdfExtension(key: string): boolean {
+  const ext = key.split(".").pop()?.toLowerCase();
+  return ext === "pdf";
+}
+
+function isPreviewableExtension(key: string): boolean {
+  return (
+    isImageExtension(key) ||
+    isVideoExtension(key) ||
+    isAudioExtension(key) ||
+    isPdfExtension(key)
+  );
+}
+
+function getPreviewKind(key: string): PreviewKind | null {
+  if (isImageExtension(key)) return "image";
+  if (isVideoExtension(key)) return "video";
+  if (isAudioExtension(key)) return "audio";
+  if (isPdfExtension(key)) return "pdf";
+  return null;
+}
+
 /**
  * AssetTable Component
  * Displays S3 objects in a table format with actions
@@ -132,6 +171,7 @@ export function AssetTable({
   onNavigate,
   onDelete,
   onDownload,
+  onPreview,
   onRename,
   onSortChange,
   isLoading = false,
@@ -145,9 +185,11 @@ export function AssetTable({
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(
-    null
-  );
+  const [mediaPreview, setMediaPreview] = useState<{
+    url: string;
+    name: string;
+    kind: PreviewKind;
+  } | null>(null);
   const sortOption: SortOption = (() => {
     if (sortField === "name") return sortDir === "asc" ? "name-asc" : "name-desc";
     if (sortField === "size") return "size";
@@ -275,20 +317,32 @@ export function AssetTable({
     }, 2000);
   };
 
+  const openPreview = async (obj: (typeof objects)[number]) => {
+    const kind = getPreviewKind(obj.key);
+    if (!kind) {
+      onDownload(obj.key);
+      return;
+    }
+
+    try {
+      const url = await onPreview(obj.key);
+      setMediaPreview({
+        url,
+        name: getDisplayName(obj.key, currentPrefix),
+        kind,
+      });
+    } catch {
+      showToast("Failed to open preview.", true);
+    }
+  };
+
   const handleGridCardOpen = (obj: (typeof objects)[number]) => {
     if (renamingKey !== null) return;
     if (obj.isFolder) {
       onNavigate(obj.key);
       return;
     }
-    if (obj.imgUrl || obj.previewUrl) {
-      setPreviewImage({
-        url: obj.imgUrl || obj.previewUrl!,
-        name: getDisplayName(obj.key, currentPrefix),
-      });
-      return;
-    }
-    onDownload(obj.key);
+    void openPreview(obj);
   };
 
   const handleRenameStart = (obj: (typeof objects)[number]) => {
@@ -565,20 +619,16 @@ export function AssetTable({
                     ) : (
                       <div>
                         {(() => {
-                          const isPreviewable = (obj.imgUrl || obj.previewUrl) != null && isImageExtension(obj.key);
+                          const previewKind = getPreviewKind(obj.key);
+                          const isPreviewable = previewKind != null;
                           return (
                             <>
-                              {isPreviewable && (
+                              {previewKind === "image" && (obj.imgUrl || obj.previewUrl) && (
                                 <button
                                   type="button"
                                   className="cursor-pointer"
-                                  onClick={() =>
-                                    setPreviewImage({
-                                      url: obj.imgUrl || obj.previewUrl!,
-                                      name: getDisplayName(obj.key, currentPrefix),
-                                    })
-                                  }
-                                  title="Open large image preview"
+                                  onClick={() => void openPreview(obj)}
+                                  title="Preview"
                                 >
                                   <img
                                     src={obj.imgUrl || obj.previewUrl!}
@@ -596,33 +646,33 @@ export function AssetTable({
                                     className="block max-w-[240px] truncate text-sm text-primary underline"
                                     target="_blank"
                                     rel="noreferrer"
-                                    href={obj.previewUrl!}
+                                    href={obj.imgUrl || obj.previewUrl!}
                                   >
-                                    {obj.previewUrl}
+                                    {obj.imgUrl || obj.previewUrl}
                                   </a>
                                 </div>
                               )}
                               <span className="font-medium text-[12px] text-gray-500">
                                 {getDisplayName(obj.key, currentPrefix)}
                               </span>
-                              {obj.previewUrl && (
+                               {(obj.imgUrl || obj.previewUrl) && (
                                 <div className="mt-1">
                                   <Button
                                     type="button"
                                     variant="outline"
                                     size="xs"
                                     className="h-7 px-2 cursor-pointer text-[12px]"
-                                    onClick={() => {
-                                      navigator.clipboard
-                                        .writeText(obj.previewUrl!)
-                                        .then(() => showToast("URL copied to clipboard!"))
-                                        .catch(() => showToast("Failed to copy URL.", true));
-                                    }}
-                                  >
-                                    Copy URL
-                                  </Button>
-                                </div>
-                              )}
+                                onClick={() => {
+                                       navigator.clipboard
+                                         .writeText(obj.imgUrl || obj.previewUrl!)
+                                         .then(() => showToast("URL copied to clipboard!"))
+                                         .catch(() => showToast("Failed to copy URL.", true));
+                                     }}
+                                   >
+                                     Copy URL
+                                   </Button>
+                                 </div>
+                               )}
                             </>
                           );
                         })()}
@@ -643,7 +693,20 @@ export function AssetTable({
                   {/* Actions */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {/* Download button (only for files) */}
+                      {/* Preview and download buttons (only for files) */}
+                      {!obj.isFolder && getPreviewKind(obj.key) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="cursor-pointer"
+                          onClick={() => void openPreview(obj)}
+                          title="Preview"
+                          disabled={renamingKey !== null}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">Preview</span>
+                        </Button>
+                      )}
                       {!obj.isFolder && (
                         <Button
                           variant="ghost"
@@ -744,6 +807,12 @@ export function AssetTable({
                             (e.target as HTMLImageElement).style.display = "none";
                           }}
                         />
+                      ) : getPreviewKind(obj.key) === "video" ? (
+                        <Video className="h-12 w-12 text-muted-foreground" />
+                      ) : getPreviewKind(obj.key) === "audio" ? (
+                        <Music2 className="h-12 w-12 text-muted-foreground" />
+                      ) : getPreviewKind(obj.key) === "pdf" ? (
+                        <FileText className="h-12 w-12 text-muted-foreground" />
                       ) : (
                         <File className="h-10 w-10 text-muted-foreground" />
                       )}
@@ -803,18 +872,18 @@ export function AssetTable({
                     )}
 
                     {/* Copy URL */}
-                    {!obj.isFolder && obj.previewUrl && !isRenaming && (
+                     {!obj.isFolder && (obj.imgUrl || obj.previewUrl) && !isRenaming && (
                       <Button
                         type="button"
                         variant="outline"
                         size="xs"
                         className="h-6 w-full text-[11px]"
-                        onClick={() => {
-                          navigator.clipboard
-                            .writeText(obj.previewUrl!)
-                            .then(() => showToast("URL copied to clipboard!"))
-                            .catch(() => showToast("Failed to copy URL.", true));
-                        }}
+                       onClick={() => {
+                           navigator.clipboard
+                             .writeText(obj.imgUrl || obj.previewUrl!)
+                             .then(() => showToast("URL copied to clipboard!"))
+                             .catch(() => showToast("Failed to copy URL.", true));
+                         }}
                       >
                         Copy URL
                       </Button>
@@ -823,6 +892,19 @@ export function AssetTable({
                     {/* Action buttons — visible on hover */}
                     {!isRenaming && (
                       <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        {!obj.isFolder && getPreviewKind(obj.key) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => void openPreview(obj)}
+                            title="Preview"
+                            disabled={renamingKey !== null}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span className="sr-only">Preview</span>
+                          </Button>
+                        )}
                         {!obj.isFolder && (
                           <Button
                             variant="ghost"
@@ -871,34 +953,47 @@ export function AssetTable({
       )}
 
       <Dialog
-        open={previewImage !== null}
+        open={mediaPreview !== null}
         onOpenChange={(open) => {
-          if (!open) setPreviewImage(null);
+          if (!open) setMediaPreview(null);
         }}
       >
         <DialogContent className="max-w-4xl p-4">
           <DialogTitle className="text-sm sm:text-base">
-            {previewImage?.name || "File preview"}
+            {mediaPreview?.name || "File preview"}
           </DialogTitle>
           <DialogDescription className="sr-only">
             Preview for selected asset
           </DialogDescription>
 
-          {previewImage && (
+          {mediaPreview && (
             <div className="max-h-[70vh] overflow-auto rounded-md border bg-muted">
-              {isImageExtension(previewImage.name) ? (
+              {mediaPreview.kind === "image" && (
                 <img
-                  src={previewImage.url}
-                  alt={previewImage.name}
+                  src={mediaPreview.url}
+                  alt={mediaPreview.name}
                   className="h-auto w-full object-contain"
                 />
-              ) : (
+              )}
+              {mediaPreview.kind === "pdf" && (
                 <iframe
-                  src={previewImage.url}
-                  title={previewImage.name}
+                  src={mediaPreview.url}
+                  title={mediaPreview.name}
                   className="h-[60vh] w-full"
                   sandbox="allow-scripts allow-same-origin"
                 />
+              )}
+              {mediaPreview.kind === "video" && (
+                <video
+                  src={mediaPreview.url}
+                  controls
+                  className="max-h-[60vh] w-full bg-black"
+                />
+              )}
+              {mediaPreview.kind === "audio" && (
+                <div className="flex min-h-32 items-center px-4">
+                  <audio src={mediaPreview.url} controls className="w-full" />
+                </div>
               )}
             </div>
           )}
@@ -910,7 +1005,7 @@ export function AssetTable({
               size="sm"
               onClick={() => {
                 navigator.clipboard
-                  .writeText(previewImage?.url || "")
+                  .writeText(mediaPreview?.url || "")
                   .then(() => showToast("URL copied to clipboard!"))
                   .catch(() => showToast("Failed to copy URL.", true));
               }}
