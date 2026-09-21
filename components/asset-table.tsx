@@ -26,6 +26,7 @@ import {
   Download,
   Eye,
   Folder,
+  FolderOutput,
   File,
   FileText,
   Music2,
@@ -46,7 +47,7 @@ type SortField = "name" | "size" | "lastModified" | "type";
 type SortDir = "asc" | "desc";
 type ViewMode = "list" | "grid";
 type SortOption = "name-asc" | "name-desc" | "size" | "type" | "last-modified";
-type PreviewKind = "image" | "pdf" | "video" | "audio";
+type PreviewKind = "image" | "pdf" | "video" | "audio" | "text";
 
 /**
  * Props for the AssetTable component
@@ -66,6 +67,8 @@ interface AssetTableProps {
   onPreview: (key: string) => Promise<string>;
   /** Callback when user renames an object */
   onRename?: (oldKey: string, newKey: string) => Promise<void>;
+  /** Callback when user requests to move an object */
+  onMove?: (key: string) => void;
   /** Callback when user changes sort field/direction */
   onSortChange?: (sort: { field: SortField; dir: SortDir }) => void;
   /** Whether data is currently loading */
@@ -174,6 +177,7 @@ export function AssetTable({
   onDownload,
   onPreview,
   onRename,
+  onMove,
   onSortChange,
   isLoading = false,
   pagination,
@@ -737,6 +741,21 @@ export function AssetTable({
                         </Button>
                       )}
 
+                      {/* Move button */}
+                      {onMove && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="cursor-pointer"
+                          onClick={() => onMove(obj.key)}
+                          title="Move"
+                          disabled={renamingKey !== null}
+                        >
+                          <FolderOutput className="h-4 w-4" />
+                          <span className="sr-only">Move</span>
+                        </Button>
+                      )}
+
                       {/* Delete button */}
                       <Button
                         variant="ghost"
@@ -930,6 +949,19 @@ export function AssetTable({
                           >
                             <Pencil className="h-3.5 w-3.5" />
                             <span className="sr-only">Rename</span>
+                          </Button>
+                        )}
+                        {onMove && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => onMove(obj.key)}
+                            title="Move"
+                            disabled={renamingKey !== null}
+                          >
+                            <FolderOutput className="h-3.5 w-3.5" />
+                            <span className="sr-only">Move</span>
                           </Button>
                         )}
                         <Button

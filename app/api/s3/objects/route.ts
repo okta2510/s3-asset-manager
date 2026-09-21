@@ -2,6 +2,7 @@ import {
   S3Client,
   ListObjectsV2Command,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   PutObjectCommand,
   CopyObjectCommand,
@@ -217,7 +218,7 @@ export async function POST(request: Request) {
 
 /**
  * DELETE /api/s3/objects
- * Deletes an object from the bucket
+ * Deletes an object or folder (recursively) from the bucket
  */
 export async function DELETE(request: Request) {
   try {
@@ -247,20 +248,59 @@ export async function DELETE(request: Request) {
       secretAccessKey,
     });
 
-    /**
-     * DeleteObjectCommand removes an object from the bucket
-     * Note: This operation is idempotent - deleting non-existent object succeeds
-     */
-    const command = new DeleteObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    });
+    const isFolder = key.endsWith("/");
 
-    await client.send(command);
+    if (isFolder) {
+      // Recursively list all objects with prefix `key`
+      let continuationToken: string | undefined = undefined;
+      const keysToDelete: { Key: string }[] = [];
+
+      do {
+        const listRes = await client.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: key,
+            ContinuationToken: continuationToken,
+          })
+        );
+
+        if (listRes.Contents) {
+          for (const item of listRes.Contents) {
+            if (item.Key) {
+              keysToDelete.push({ Key: item.Key });
+            }
+          }
+        }
+        continuationToken = listRes.NextContinuationToken;
+      } while (continuationToken);
+
+      // Ensure the folder marker key itself is included
+      if (!keysToDelete.some((k) => k.Key === key)) {
+        keysToDelete.push({ Key: key });
+      }
+
+      // Delete in batches of 1000 (S3 limits)
+      for (let i = 0; i < keysToDelete.length; i += 1000) {
+        const batch = keysToDelete.slice(i, i + 1000);
+        await client.send(
+          new DeleteObjectsCommand({
+            Bucket: bucket,
+            Delete: { Objects: batch, Quiet: true },
+          })
+        );
+      }
+    } else {
+      await client.send(
+        new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        })
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Object "${key}" deleted successfully`,
+      message: `"${key}" deleted successfully`,
     });
   } catch (error) {
     console.error("Error deleting object:", error);
@@ -276,8 +316,7 @@ export async function DELETE(request: Request) {
 
 /**
  * PUT /api/s3/objects
- * Renames an object by copying it to a new key then deleting the original.
- * S3 has no native rename — copy + delete is the standard pattern.
+ * Renames or moves an object or folder (recursively) by copying to a new key then deleting the original.
  */
 export async function PUT(request: Request) {
   try {
@@ -293,33 +332,88 @@ export async function PUT(request: Request) {
 
     const client = createS3Client({ endpoint, region, accessKeyId, secretAccessKey });
 
-    // Copy to the new key
-    await client.send(
-      new CopyObjectCommand({
-        Bucket: bucket,
-        CopySource: `${bucket}/${oldKey}`,
-        Key: newKey,
-        ACL: "public-read",
-      })
-    );
+    const isFolder = oldKey.endsWith("/");
 
-    // Delete the original key
-    await client.send(
-      new DeleteObjectCommand({
-        Bucket: bucket,
-        Key: oldKey,
-      })
-    );
+    if (isFolder) {
+      const normalizedNewKey = newKey.endsWith("/") ? newKey : `${newKey}/`;
+
+      // Recursively list all objects under oldKey prefix
+      let continuationToken: string | undefined = undefined;
+      const keysToMove: string[] = [];
+
+      do {
+        const listRes = await client.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: oldKey,
+            ContinuationToken: continuationToken,
+          })
+        );
+
+        if (listRes.Contents) {
+          for (const item of listRes.Contents) {
+            if (item.Key) {
+              keysToMove.push(item.Key);
+            }
+          }
+        }
+        continuationToken = listRes.NextContinuationToken;
+      } while (continuationToken);
+
+      if (!keysToMove.includes(oldKey)) {
+        keysToMove.push(oldKey);
+      }
+
+      for (const itemKey of keysToMove) {
+        const relativePath = itemKey.startsWith(oldKey)
+          ? itemKey.slice(oldKey.length)
+          : "";
+        const targetKey = itemKey === oldKey ? normalizedNewKey : `${normalizedNewKey}${relativePath}`;
+
+        await client.send(
+          new CopyObjectCommand({
+            Bucket: bucket,
+            CopySource: encodeURI(`${bucket}/${itemKey}`),
+            Key: targetKey,
+            ACL: "public-read",
+          })
+        );
+
+        await client.send(
+          new DeleteObjectCommand({
+            Bucket: bucket,
+            Key: itemKey,
+          })
+        );
+      }
+    } else {
+      // Single file copy + delete
+      await client.send(
+        new CopyObjectCommand({
+          Bucket: bucket,
+          CopySource: encodeURI(`${bucket}/${oldKey}`),
+          Key: newKey,
+          ACL: "public-read",
+        })
+      );
+
+      await client.send(
+        new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: oldKey,
+        })
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Renamed "${oldKey}" to "${newKey}"`,
+      message: `Moved "${oldKey}" to "${newKey}"`,
       newKey,
     });
   } catch (error) {
-    console.error("Error renaming object:", error);
+    console.error("Error renaming/moving object:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to rename object" },
+      { error: error instanceof Error ? error.message : "Failed to move object" },
       { status: 500 }
     );
   }

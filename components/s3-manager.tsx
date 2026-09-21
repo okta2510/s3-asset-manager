@@ -8,6 +8,7 @@ import { BucketSelector } from "@/components/bucket-selector";
 import { AssetTable } from "@/components/asset-table";
 import { UploadDialog } from "@/components/upload-dialog";
 import { DeleteDialog } from "@/components/delete-dialog";
+import { MoveDialog } from "@/components/move-dialog";
 import { CreateBucketDialog } from "@/components/create-bucket-dialog";
 import {
   saveCredentials,
@@ -50,6 +51,8 @@ export function S3Manager() {
   const completedRef = useRef(0);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<string | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
   const [isCreatingBucket, setIsCreatingBucket] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [perPage, setPerPage] = useState(10);
@@ -689,6 +692,7 @@ export function S3Manager() {
                   onDownload={handleDownload}
                   onPreview={handlePreview}
                   onRename={handleRename}
+                  onMove={(key) => setMoveTarget(key)}
                   onSortChange={handleSortChange}
                   isLoading={isObjectsLoading}
                   pagination={{
@@ -720,6 +724,23 @@ export function S3Manager() {
         objectKey={deleteTarget || ""}
         onConfirm={handleDelete}
         isDeleting={isDeleting}
+      />
+
+      {/* Move dialog */}
+      <MoveDialog
+        open={moveTarget !== null}
+        onOpenChange={(open) => !open && setMoveTarget(null)}
+        objectKey={moveTarget || ""}
+        onConfirm={async (oldKey, newKey) => {
+          setIsMoving(true);
+          try {
+            await handleRename(oldKey, newKey);
+            setMoveTarget(null);
+          } finally {
+            setIsMoving(false);
+          }
+        }}
+        isMoving={isMoving}
       />
     </div>
   );
