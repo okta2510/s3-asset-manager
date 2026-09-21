@@ -157,6 +157,7 @@ function getPreviewKind(key: string): PreviewKind | null {
   if (isVideoExtension(key)) return "video";
   if (isAudioExtension(key)) return "audio";
   if (isPdfExtension(key)) return "pdf";
+  if (isTextExtension(key)) return "text";
   return null;
 }
 
@@ -975,11 +976,11 @@ export function AssetTable({
                   className="h-auto w-full object-contain"
                 />
               )}
-              {mediaPreview.kind === "pdf" && (
+              {(mediaPreview.kind === "pdf" || mediaPreview.kind === "text") && (
                 <iframe
                   src={mediaPreview.url}
                   title={mediaPreview.name}
-                  className="h-[60vh] w-full"
+                  className="h-[60vh] w-full bg-white text-black p-2"
                   sandbox="allow-scripts allow-same-origin"
                 />
               )}

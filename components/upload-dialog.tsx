@@ -209,7 +209,7 @@ export function UploadDialog({
               >
                 <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Click to select PDF, MP3, or MP4 files
+                  Click to select files (Images, PDF, MP3, MP4, TXT, MD)
                 </p>
               </div>
             )}

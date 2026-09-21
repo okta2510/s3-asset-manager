@@ -406,7 +406,7 @@ export function S3Manager() {
       console.log(`Folder created: ${folderKey}`);
     } catch (error) {
       console.error('Error creating folder:', error);
-      // You might want to show a toast/notification here
+      alert(error instanceof Error ? error.message : "Failed to create folder");
     } finally {
       setIsUploading(false);
     }
