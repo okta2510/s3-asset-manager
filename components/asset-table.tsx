@@ -146,12 +146,24 @@ function isPdfExtension(key: string): boolean {
   return ext === "pdf";
 }
 
+function isTextExtension(key: string): boolean {
+  const ext = key.split(".").pop()?.toLowerCase();
+  return ["txt", "md"].includes(ext || "");
+}
+
+function isDocumentExtension(key: string): boolean {
+  const ext = key.split(".").pop()?.toLowerCase();
+  return ["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext || "");
+}
+
 function isPreviewableExtension(key: string): boolean {
   return (
     isImageExtension(key) ||
     isVideoExtension(key) ||
     isAudioExtension(key) ||
-    isPdfExtension(key)
+    isPdfExtension(key) ||
+    isTextExtension(key) ||
+    isDocumentExtension(key)
   );
 }
 
@@ -161,6 +173,7 @@ function getPreviewKind(key: string): PreviewKind | null {
   if (isAudioExtension(key)) return "audio";
   if (isPdfExtension(key)) return "pdf";
   if (isTextExtension(key)) return "text";
+  if (isDocumentExtension(key)) return "document";
   return null;
 }
 
@@ -324,7 +337,7 @@ export function AssetTable({
 
   const openPreview = async (obj: (typeof objects)[number]) => {
     const kind = getPreviewKind(obj.key);
-    if (!kind) {
+    if (!kind || kind === "document") {
       onDownload(obj.key);
       return;
     }

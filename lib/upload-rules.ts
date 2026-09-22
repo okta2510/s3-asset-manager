@@ -1,7 +1,13 @@
 const MB = 1024 * 1024;
 
 export const UPLOAD_ACCEPT =
-  ".pdf,.mp3,.mp4,.jpg,.jpeg,.png,.webp,.gif,.svg,.txt,.md,application/pdf,audio/mpeg,video/mp4,image/jpeg,image/png,image/webp,image/gif,image/svg+xml,text/plain,text/markdown";
+  ".pdf,.mp3,.mp4,.jpg,.jpeg,.png,.webp,.gif,.svg,.txt,.md,.doc,.docx,.xls,.xlsx,.ppt,.pptx," +
+  "application/pdf,audio/mpeg,video/mp4," +
+  "image/jpeg,image/png,image/webp,image/gif,image/svg+xml," +
+  "text/plain,text/markdown," +
+  "application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
+  "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
+  "application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 interface Rule {
   extensions: string[];
@@ -24,6 +30,27 @@ const RULES: Rule[] = [
   },
   { extensions: [".txt"], mimeTypes: ["text/plain"], label: "Text", maxSize: 10 * MB, defaultMimeType: "text/plain" },
   { extensions: [".md"], mimeTypes: ["text/markdown", "text/plain", "text/x-markdown"], label: "Markdown", maxSize: 10 * MB, defaultMimeType: "text/markdown" },
+  {
+    extensions: [".doc", ".docx"],
+    mimeTypes: ["application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    label: "Word Document",
+    maxSize: 50 * MB,
+    defaultMimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
+  {
+    extensions: [".xls", ".xlsx"],
+    mimeTypes: ["application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+    label: "Excel Spreadsheet",
+    maxSize: 50 * MB,
+    defaultMimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  },
+  {
+    extensions: [".ppt", ".pptx"],
+    mimeTypes: ["application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+    label: "PowerPoint Presentation",
+    maxSize: 100 * MB,
+    defaultMimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  },
 ];
 
 function formatMB(bytes: number) {
@@ -52,6 +79,12 @@ function getMimeType(name: string, type: string, rule: Rule): string {
   if (lowerName.endsWith(".svg")) return "image/svg+xml";
   if (lowerName.endsWith(".txt")) return "text/plain";
   if (lowerName.endsWith(".md")) return "text/markdown";
+  if (lowerName.endsWith(".doc")) return "application/msword";
+  if (lowerName.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (lowerName.endsWith(".xls")) return "application/vnd.ms-excel";
+  if (lowerName.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (lowerName.endsWith(".ppt")) return "application/vnd.ms-powerpoint";
+  if (lowerName.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
   return type || rule.defaultMimeType;
 }
 
@@ -65,7 +98,7 @@ export function validateUploadFile(file: { name: string; type: string; size: num
   if (!rule) {
     return {
       valid: false,
-      error: `${file.name} must be a PDF, MP3, MP4, Image (JPG, PNG, WEBP, GIF, SVG), TXT, or MD file.`,
+      error: `${file.name} is not a supported file type. Allowed: PDF, MP3, MP4, Images, TXT, MD, DOC, DOCX, XLS, XLSX, PPT, PPTX.`,
     };
   }
 
